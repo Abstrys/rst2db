@@ -9,9 +9,8 @@ other formats.
 
 .. contents::
 
-
-Lists
------
+Simple Lists
+------------
 
 Let's start by declaring a list. This is one of the simplest and most often
 used elements in technical writing, besides sections, titles, and paragraphs
@@ -25,11 +24,65 @@ My list consists of a few items:
 
 Those are great colors, aren't they? They can be combined in so many ways, too.
 
-We have other types of items, too:
+We have some numbered items, too:
 
 1. The first step.
 2. The second step.
 3. Watch that third step, it's a doozy!
+
+
+Extended Lists
+--------------
+
+In addition to simple list types (itemized and ordered), there are other common
+list types. Most used in DocBook is one called a *variable list*, which is
+analagous to a definition list. Here's an example.
+
+Term 1:
+    Term 1 has a description
+
+Term 2:
+    Term 2 also has a description
+
+Term 3:
+    Term 3 was lost in a maze of twisty passages, all different.
+
+
+Linking
+-------
+
+There are all sorts of link types in reStructuredText:
+
+* **Anonymous links**::
+
+    This is an `anonymous link`__.
+
+    .. __: lists
+
+  This is an `anonymous link`__.
+
+.. __: lists
+
+* **Named links**::
+
+    This is a `named link`_.
+
+    .. _`named link`: http://docutils.sourceforge.net/docs/ref/rst/restructuredtext.html
+
+  This is a `named link`_.
+
+.. _`named link`: http://docutils.sourceforge.net/docs/ref/rst/restructuredtext.html
+
+* **Indirect links**::
+
+    This is an `indirect link`__.
+
+    .. __: `named link`_
+
+  This is an `indirect link`__.
+
+.. __: `named link`_
+
 
 Images
 ------
@@ -38,8 +91,17 @@ We frequently include images in technical writing to illustrate important
 concepts, like this:
 
 .. image:: test_img.png
+   :scale: 50
+   :align: center
+   :alt: Purrmenides
 
 He's a fine cat, that one.
+
+.. figure:: test_img.png
+   :alt: Purrmenides
+
+   This figure has both alt text and a caption!
+
 
 Tables
 ------
@@ -48,7 +110,7 @@ You can easily create tables in reST.  Here's a quick one:
 
 +----------------------+------------------------+-------------------+
 | Common Name          | Classification         | Notes             |
-+----------------------+------------------------+-------------------+
++======================+========================+===================+
 | Velvetleaf Blueberry | Vaccinium myrtilloides | look near bogs    |
 +----------------------+------------------------+-------------------+
 | Salmonberry          | Rubus spectabilis      | best when orange  |

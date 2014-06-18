@@ -5,6 +5,12 @@
 #
 # A module for docutils that converts from a doctree to DocBook output.
 #
+# Written by Eron Hennessey
+#
+# Much more information about the elements in this module can be found at:
+#
+# * http://docutils.sourceforge.net/docs/ref/doctree.html
+#
 from docutils import nodes, writers
 
 class DocBookWriter(writers.Writer):
@@ -37,7 +43,8 @@ class DocBookTranslator(nodes.NodeVisitor):
         self.indent_level = 0
         self.indent_text = "  "
 
-        self.in_code_block = False
+        self.in_pre_block = False
+        self.in_figure = False
 
     #
     # functions used by the translator.
@@ -96,8 +103,13 @@ class DocBookTranslator(nodes.NodeVisitor):
     def depart_paragraph(self, node):
         self._add_inline('</para>\n')
 
-    def visit_contents(self, node):
-        self._add('<para role="topiclist">')
+    def visit_block_quote(self, node):
+        self._add('<blockquote>\n')
+        self.indent_level += 1
+
+    def depart_block_quote(self, node):
+        self.indent_level -= 1
+        self._add('</blockquote>\n')
 
     def visit_topic(self, node):
         self.visit_section(node)
@@ -106,21 +118,20 @@ class DocBookTranslator(nodes.NodeVisitor):
         self.depart_section(node)
 
     def visit_Text(self, node):
-        if self.in_code_block or '\n' not in node:
+        if self.in_pre_block or '\n' not in node:
             self._add_inline(node)
         else:
             first = True
             lines = node.split('\n')
             for line in lines:
                 if first:
-                    self._add_inline(line.rstrip())
+                    self._add_inline('%s' % line.strip())
                     first = False
                     self.indent_level += 1
                 else:
                     self._add_inline('\n')
                     self._add('%s' % line.strip())
             self.indent_level -= 1
-
 
     def depart_Text(self, node):
         pass
@@ -180,29 +191,119 @@ class DocBookTranslator(nodes.NodeVisitor):
         self.indent_level -= 1
         self._add("</listitem>\n")
 
+    def visit_definition_list(self, node):
+        self._add('<variablelist>\n')
+        self.indent_level += 1
+
+    def depart_definition_list(self, node):
+        self.indent_level -= 1
+        self._add('</variablelist>\n')
+
+    def visit_definition_list_item(self, node):
+        self._add('<varlistentry>\n')
+        self.indent_level += 1
+
+    def depart_definition_list_item(self, node):
+        self.indent_level -= 1
+        self._add('</varlistentry>\n')
+
+    def visit_term(self, node):
+        self._add('<term>')
+
+    def depart_term(self, node):
+        self._add_inline('</term>\n')
+
+    def visit_definition(self, node):
+        self.visit_list_item(node)
+
+    def depart_definition(self, node):
+        self.depart_list_item(node)
+
     #
     # image parts
     #
 
-    def visit_image(self, node):
+    def start_mediaobject(self):
         self._add("<mediaobject>\n")
         self.indent_level += 1
+
+    def end_mediaobject(self):
+        self.indent_level -= 1
+        self._add("</mediaobject>\n")
+
+    def visit_image(self, node):
+        # images can exist outside of figures in the doctree, but figures
+        # always contain an image.
+        if not self.in_figure:
+            self.start_mediaobject()
+
         self._add("<imageobject>\n")
         self.indent_level += 1
-        self._add('<imagedata fileref="%s"/>\n' % node['uri'])
+
+        # Many options are supported for imagedata
+        imagedata_parts = ['<imagedata']
+
+        if node.hasattr('uri'):
+            imagedata_parts.append('fileref="%s"' % node['uri'])
+        else:
+            imagedata_parts.append('eek="%s"' % str(node))
+
+        if node.hasattr('height'):
+            pass
+        if node.hasattr('width'):
+            pass
+        if node.hasattr('scale'):
+            imagedata_parts.append('scale="%s"' % node['scale'])
+        if node.hasattr('align'):
+            alignval = node['align']
+            if (alignval == 'top' or alignval == 'middle' or alignval ==
+                'bottom'):
+              # top, middle, bottom all refer to the docbook 'valign'
+              # attribute.
+              imagedata_parts.append('valign="%s"' % alignval)
+            else:
+              # left, right, center stay as-is
+              imagedata_parts.append('align="%s"' % alignval)
+        if node.hasattr('target'):
+            pass
+        self._add(' '.join(imagedata_parts))
+        self._add_inline('>\n')
+        # alt text?
+        if node.hasattr('alt'):
+            self._add('<textobject>\n')
+            self.indent_level += 1
+            self._add('<phrase>%s</phrase>\n' % node['alt'])
+            self.indent_level -= 1
+            self._add('</textobject>\n')
 
     def depart_image(self, node):
         self.indent_level -= 1
         self._add("</imageobject>\n")
+        if not self.in_figure:
+            self.end_mediaobject()
+
+    def visit_figure(self, node):
+        self.start_mediaobject()
+
+    def depart_figure(self, node):
+        self.end_mediaobject()
+
+    def visit_caption(self, node):
+        self._add('<caption>\n')
+        self.indent_level += 1
+        self.visit_paragraph(node)
+
+    def depart_caption(self, node):
+        self.depart_paragraph(node)
         self.indent_level -= 1
-        self._add("</mediaobject>\n")
+        self._add('</caption>\n')
 
     #
     # table parts
     #
 
     def visit_table(self, node):
-        self._add("<table>\n")
+        self._add('<table>\n')
         self.indent_level += 1
 
     def depart_table(self, node):
@@ -210,7 +311,10 @@ class DocBookTranslator(nodes.NodeVisitor):
         self._add("</table>\n")
 
     def visit_tgroup(self, node):
-        self._add("<tgroup>\n")
+        if node.hasattr('cols'):
+            self._add('<tgroup cols="%s">\n' % node['cols'])
+        else:
+            self._add("<tgroup>\n")
         self.indent_level += 1
 
     def depart_tgroup(self, node):
@@ -218,12 +322,13 @@ class DocBookTranslator(nodes.NodeVisitor):
         self._add("</tgroup>\n")
 
     def visit_colspec(self, node):
-        self._add("<colspec>\n")
-        self.indent_level += 1
+        if node.hasattr('colwidth'):
+            self._add('<colspec colwidth="%s"/>\n' % node['colwidth'])
+        else:
+            self._add('<colspec/>\n')
 
     def depart_colspec(self, node):
-        self.indent_level -= 1
-        self._add("</colspec>\n")
+        pass
 
     def visit_thead(self, node):
         self._add("<thead>\n")
@@ -263,7 +368,7 @@ class DocBookTranslator(nodes.NodeVisitor):
     #
 
     def visit_emphasis(self, node):
-        self._add_inline('<emphasis>')
+        self._add_inline(' <emphasis>')
 
     def depart_emphasis(self, node):
         self._add_inline('</emphasis>')
@@ -272,7 +377,19 @@ class DocBookTranslator(nodes.NodeVisitor):
         self._add_inline('<emphasis role="strong">')
 
     def depart_strong(self, node):
-        self._add_inline("</emphasis>")
+        self.depart_emphasis(node)
+
+    def visit_subscript(self, node):
+        self._add_inline('<subscript>')
+
+    def depart_subscript(self, node):
+        self._add_inline('</subscript>')
+
+    def visit_superscript(self, node):
+        self._add_inline('<superscript>')
+
+    def depart_superscript(self, node):
+        self._add_inline('</superscript>')
 
     #
     # Code and such
@@ -284,11 +401,11 @@ class DocBookTranslator(nodes.NodeVisitor):
             self._add('<programlisting language="%s">\n' % language)
         else:
             self._add("<programlisting>\n")
-        self.in_code_block = True
+        self.in_pre_block = True
 
     def depart_literal_block(self, node):
         self._add_inline("</programlisting>\n")
-        self.in_code_block = False
+        self.in_pre_block = False
 
     def visit_literal(self, node):
         self._add_inline('<code>')
