@@ -125,12 +125,12 @@ class DocBookTranslator(nodes.NodeVisitor):
             lines = node.split('\n')
             for line in lines:
                 if first:
-                    self._add_inline('%s' % line.strip())
+                    self._add_inline('%s' % line)
                     first = False
                     self.indent_level += 1
                 else:
                     self._add_inline('\n')
-                    self._add('%s' % line.strip())
+                    self._add('%s' % line)
             self.indent_level -= 1
 
     def depart_Text(self, node):
@@ -368,7 +368,7 @@ class DocBookTranslator(nodes.NodeVisitor):
     #
 
     def visit_emphasis(self, node):
-        self._add_inline(' <emphasis>')
+        self._add_inline('<emphasis>')
 
     def depart_emphasis(self, node):
         self._add_inline('</emphasis>')

@@ -1,7 +1,8 @@
-#!/usr/bin/env python
-from distutils.core import setup
+rst2db.py
+=========
 
-long_desc = """
+A reStructuredText to DocBook converter using Python's docutils.
+
 Usage
 -----
 
@@ -24,16 +25,18 @@ Settings:
 
                     Use {{data.root_element}} and {{data.contents}} to
                     represent the output of this script in your template.
-"""
 
-setup(name='rst2db',
-      description="""
-        A reStructuredText to DocBook converter using Python's docutils.""",
-      version='0.9b',
-      requires=['docutils'],
-      packages=['abstrys'],
-      scripts=['rst2db.py'],
-      author='Eron Hennessey',
-      author_email='eron@abstrys.com',
-      url='https://github.com/Abstrys/rst2db',
-      )
+License
+-------
+
+This software is provided under the `BSD 3-Clause`__ license. See the
+`LICENSE`__ file for more details.
+
+.. __: http://opensource.org/licenses/BSD-3-Clause
+.. __: https://github.com/Abstrys/abstrys-toolkit/blob/master/LICENSE
+
+For more information
+--------------------
+
+Contact: Eron Hennessey <eron@abstrys.com>
+
