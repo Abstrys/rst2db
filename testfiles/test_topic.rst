@@ -108,15 +108,18 @@ Tables
 
 You can easily create tables in reST.  Here's a quick one:
 
-+----------------------+------------------------+-------------------+
-| Common Name          | Classification         | Notes             |
-+======================+========================+===================+
-| Velvetleaf Blueberry | Vaccinium myrtilloides | look near bogs    |
-+----------------------+------------------------+-------------------+
-| Salmonberry          | Rubus spectabilis      | best when orange  |
-+----------------------+------------------------+-------------------+
-| Thimbleberry         | Rubus parviflorus      | don't eat wilted! |
-+----------------------+------------------------+-------------------+
++----------------------+----------------------------+-------------------+
+| Common Name          | Classification             | Notes             |
++======================+============================+===================+
+| Velvetleaf Blueberry | * Vaccinium look near bogs                     |
+|                      |                                                |
++----------------------+----------------------------+-------------------+
+| Salmonberry          | Rubus spectabilis          | best when orange  |
++----------------------+----------------------------+-------------------+
+| Thimbleberry         | Rubus parviflorus          | don't eat wilted! |
++----------------------+----------------------------+-------------------+
+| Catberry             |                            |                   |
++----------------------+----------------------------+-------------------+
 
 Code
 ----
@@ -149,6 +152,10 @@ Here's an admonition:
 .. note::
 
     This is a note.
+
+    This is still part of the note.
+
+This is no longer part of the note.
 
 .. warning::
 

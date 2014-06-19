@@ -77,13 +77,34 @@ class DocBookTranslator(nodes.NodeVisitor):
         self._add('</%s>\n' % self.document_type)
 
     def visit_title(self, node):
+        title_id = None
         if len(node['ids']) > 0:
-            self._add('<title id="%s">' % ''.join(node['ids']))
+            # first check to see if an id was supplied.
+            title_id = ''.join(node['ids'])
+        elif len(node.parent['ids']) > 0:
+            # If the parent node has an ID, we can use that and add '.title' at
+            # the end to make a deterministic title ID.
+            title_id = '%s.title' % ''.join(node.parent['ids'])
+
+        if title_id != None:
+            self._add('<title id="%s">' % title_id)
         else:
             self._add('<title>')
 
     def depart_title(self, node):
         self._add_inline('</title>\n')
+
+    def visit_subtitle(self, node):
+        self._add('<subtitle>')
+
+    def depart_subtitle(self, node):
+        self._add_inline('</subtitle>\n')
+
+    def visit_comment(self, node):
+        self._add('<!--')
+
+    def depart_comment(self, node):
+        self._add_inline('-->')
 
     def visit_section(self, node):
         if len(node['ids']) > 0:
