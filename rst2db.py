@@ -124,8 +124,16 @@ Settings:
         # get the file contents first
         input_file_contents = open(self.input_filename, 'r').read()
 
+        docutils_writer = None
         # set up the writer
-        docutils_writer = DocBookWriter(self.root_element)
+        if self.output_filename != None:
+            # If there's an output filename, use its basename as the root
+            # element's ID.
+            (path, filename) = os.path.split(self.output_filename)
+            (doc_id, ext) = os.path.splitext(filename)
+            docutils_writer = DocBookWriter(self.root_element, doc_id)
+        else:
+            docutils_writer = DocBookWriter(self.root_element)
 
         # get the docbook output.
         docbook_contents = publish_string(input_file_contents,

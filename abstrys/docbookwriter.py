@@ -12,19 +12,42 @@
 # * http://docutils.sourceforge.net/docs/ref/doctree.html
 #
 from docutils import nodes, writers
+from docutils.parsers import rst
+
+class TitleAbbrev(rst.Directive):
+    required_arguments = 0
+    optional_arguments = 0
+    final_argument_whitespace = False
+    option_spec = {}
+    has_content = True
+    node_class = None
+
+    def run(self):
+        # Raise an error if the directive does not have contents.
+        self.assert_has_content()
+        text = '\n'.join(self.content)
+        # Create the admonition node, to be populated by `nested_parse`.
+        admonition_node = self.node_class(rawsource=text)
+        # Parse the directive contents.
+        self.state.nested_parse(self.content, self.content_offset,
+                                admonition_node)
+        return [admonition_node]
+
 
 class DocBookWriter(writers.Writer):
     """A docutils writer for DocBook."""
 
-    def __init__(self, root_element):
+    def __init__(self, root_element, document_id = None):
         """Initialize the writer. Takes the root element of the resulting
         DocBook output as its sole argument."""
         writers.Writer.__init__(self)
         self.document_type = root_element
+        self.document_id = document_id
 
     def translate(self):
         """Call the translator to translate the document"""
-        self.visitor = DocBookTranslator(self.document, self.document_type)
+        self.visitor = DocBookTranslator(self.document, self.document_type,
+                self.document_id)
         self.document.walkabout(self.visitor)
         self.output = self.visitor.astext()
 
@@ -32,13 +55,16 @@ class DocBookWriter(writers.Writer):
 class DocBookTranslator(nodes.NodeVisitor):
     """A docutils translator for DocBook."""
 
-    def __init__(self, document, document_type):
+    def __init__(self, document, document_type, document_id = None):
         """Initialize the translator. Takes the root element of the resulting
         DocBook output as its sole argument."""
         nodes.NodeVisitor.__init__(self, document)
         self.settings = document.settings
         self.content = []
         self.document_type = document_type
+        self.document_id = document_id
+
+        self.comment_level = 0
 
         self.indent_level = 0
         self.indent_text = "  "
@@ -49,6 +75,7 @@ class DocBookTranslator(nodes.NodeVisitor):
     #
     # functions used by the translator.
     #
+
     def _add(self, string):
         """Adds the given string to the contents at the current indent
         level."""
@@ -56,6 +83,7 @@ class DocBookTranslator(nodes.NodeVisitor):
         self.content.append(string)
 
     def _add_inline(self, string):
+        """Add the string to the contents without regard for indent level."""
         self.content.append(string)
 
     def astext(self):
@@ -65,8 +93,48 @@ class DocBookTranslator(nodes.NodeVisitor):
     # document parts
     #
 
+    def visit_abstract(self, node):
+        self._add("<abstract>")
+
+    def depart_abstract(self, node):
+        self._add("</abstract>\n")
+
+    def visit_titleabbrev(self, node):
+        self._add("<titleabbrev>")
+        pass
+
+    def depart_titleabbrev(self, node):
+        self._add("</titleabbrev>\n")
+        pass
+
+    def visit_address(self, node):
+        self.visit_literal_block(node)
+
+    def depart_address(self, node):
+        self.depart_literal_block(node)
+
+    def visit_block_quote(self, node):
+        self._add('<blockquote>\n')
+        self.indent_level += 1
+
+    def depart_block_quote(self, node):
+        self.indent_level -= 1
+        self._add('</blockquote>\n')
+
+    def visit_comment(self, node):
+        if self.comment_level == 0:
+            self._add('<!--')
+        self.comment_level += 1
+
+    def depart_comment(self, node):
+        if self.comment_level == 1:
+            self._add_inline('-->\n')
+        self.comment_level -= 1
+
     def visit_document(self, node):
-        if len(node['ids']) > 0:
+        if self.document_id != None:
+            self._add('<%s id="%s">\n' % (self.document_type, self.document_id))
+        elif len(node['ids']) > 0:
             self._add('<%s id="%s">\n' % (self.document_type, ''.join(node['ids'])))
         else:
             self._add('<%s>\n' % self.document_type)
@@ -76,35 +144,11 @@ class DocBookTranslator(nodes.NodeVisitor):
         self.indent_level -= 1
         self._add('</%s>\n' % self.document_type)
 
-    def visit_title(self, node):
-        title_id = None
-        if len(node['ids']) > 0:
-            # first check to see if an id was supplied.
-            title_id = ''.join(node['ids'])
-        elif len(node.parent['ids']) > 0:
-            # If the parent node has an ID, we can use that and add '.title' at
-            # the end to make a deterministic title ID.
-            title_id = '%s.title' % ''.join(node.parent['ids'])
+    def visit_paragraph(self, node):
+        self._add('<para>')
 
-        if title_id != None:
-            self._add('<title id="%s">' % title_id)
-        else:
-            self._add('<title>')
-
-    def depart_title(self, node):
-        self._add_inline('</title>\n')
-
-    def visit_subtitle(self, node):
-        self._add('<subtitle>')
-
-    def depart_subtitle(self, node):
-        self._add_inline('</subtitle>\n')
-
-    def visit_comment(self, node):
-        self._add('<!--')
-
-    def depart_comment(self, node):
-        self._add_inline('-->')
+    def depart_paragraph(self, node):
+        self._add_inline('</para>\n')
 
     def visit_section(self, node):
         if len(node['ids']) > 0:
@@ -118,19 +162,44 @@ class DocBookTranslator(nodes.NodeVisitor):
         self.indent_level -= 1
         self._add('</section>\n')
 
-    def visit_paragraph(self, node):
-        self._add('<para>')
+    def visit_substitution_definition(self, node):
+        pass
 
-    def depart_paragraph(self, node):
-        self._add_inline('</para>\n')
+    def depart_substitution_definition(self, node):
+        pass
 
-    def visit_block_quote(self, node):
-        self._add('<blockquote>\n')
-        self.indent_level += 1
+    def visit_substitution_reference(self, node):
+        subst_def = ''.join(node)
+        self._add_inline('&%s;' % subst_def)
 
-    def depart_block_quote(self, node):
-        self.indent_level -= 1
-        self._add('</blockquote>\n')
+    def depart_substitution_reference(self, node):
+        pass
+
+    def visit_subtitle(self, node):
+        self._add('<subtitle>')
+
+    def depart_subtitle(self, node):
+        self._add_inline('</subtitle>\n')
+
+    def visit_title(self, node):
+        title_id = None
+        # first check to see if an id was supplied.
+        if len(node['ids']) > 0:
+            title_id = ''.join(node['ids'])
+            print "Title ID supplied: %s" % title_id
+        elif len(node.parent['ids']) > 0:
+            # If the parent node has an ID, we can use that and add '.title' at
+            # the end to make a deterministic title ID.
+            title_id = '%s.title' % ''.join(node.parent['ids'])
+            print "Using parent title ID: %s" % title_id
+
+        if title_id != None:
+            self._add('<title id="%s">' % title_id)
+        else:
+            self._add('<title>')
+
+    def depart_title(self, node):
+        self._add_inline('</title>\n')
 
     def visit_topic(self, node):
         self.visit_section(node)
@@ -156,6 +225,17 @@ class DocBookTranslator(nodes.NodeVisitor):
 
     def depart_Text(self, node):
         pass
+
+    def visit_include(self, node):
+        """Include as an xi:include"""
+        print "Include"
+        print node
+
+    def visit_title_reference(self, node):
+        self._add_inline("<citetitle>");
+
+    def depart_title_reference(self, node):
+        self._add_inline("</citetitle>");
 
     #
     # link parts
@@ -239,6 +319,44 @@ class DocBookTranslator(nodes.NodeVisitor):
 
     def depart_definition(self, node):
         self.depart_list_item(node)
+
+    def visit_field_list(self, node):
+        self.visit_table(node)
+        self._add('<tgroup cols="2">\n')
+        self.indent_level += 1
+        self._add('<tbody>\n')
+        self.indent_level += 1
+
+    def depart_field_list(self, node):
+        self.indent_level -= 1
+        self._add('</tbody>\n')
+        self.indent_level -= 1
+        self._add('</tgroup>\n')
+        self.depart_table(node)
+
+    def visit_field(self, node):
+        self.visit_row(node)
+
+    def depart_field(self, node):
+        self.depart_row(node)
+
+    def visit_field_name(self, node):
+        self.visit_entry(node)
+        self._add('<para><emphasis role="strong">')
+        pass
+
+    def depart_field_name(self, node):
+        self._add_inline('</emphasis></para>\n')
+        self.depart_entry(node)
+        pass
+
+    def visit_field_body(self, node):
+        self.visit_entry(node)
+        pass
+
+    def depart_field_body(self, node):
+        self.depart_entry(node)
+        pass
 
     #
     # image parts
@@ -444,6 +562,58 @@ class DocBookTranslator(nodes.NodeVisitor):
     # Admonitions
     #
 
+    def visit_admonition(self, node):
+        # generic admonitions will just use the 'note' conventions, but will
+        # set the title.
+        self.visit_note(node)
+
+    def depart_admonition(self, node):
+        self.depart_note(node)
+
+    def visit_attention(self, node):
+        self.visit_important(node)
+        self._add('<title>Attention</title>\n')
+
+    def depart_attention(self, node):
+        self.depart_important(node)
+
+    def visit_caution(self, node):
+        self._add("<caution>\n")
+        self.indent_level += 1
+
+    def depart_caution(self, node):
+        self.indent_level -= 1
+        self._add("</caution>\n")
+
+    def visit_danger(self, node):
+        self.visit_warning(node)
+        self._add('<title>Danger</title>\n')
+
+    def depart_danger(self, node):
+        self.depart_warning(node)
+
+    def visit_error(self, node):
+        self.visit_important(node)
+        self._add('<title>Error</title>\n')
+
+    def depart_error(self, node):
+        self.depart_important(node)
+
+    def visit_hint(self, node):
+        self.visit_tip(node)
+        self._add('<title>Hint</title>\n')
+
+    def depart_hint(self, node):
+        self.depart_tip(node)
+
+    def visit_important(self, node):
+        self._add("<important>\n")
+        self.indent_level += 1
+
+    def depart_important(self, node):
+        self.indent_level -= 1
+        self._add("</important>\n")
+
     def visit_note(self, node):
         self._add("<note>\n")
         self.indent_level += 1
@@ -451,6 +621,14 @@ class DocBookTranslator(nodes.NodeVisitor):
     def depart_note(self, node):
         self.indent_level -= 1
         self._add("</note>\n")
+
+    def visit_tip(self, node):
+        self._add("<tip>\n")
+        self.indent_level += 1
+
+    def depart_tip(self, node):
+        self.indent_level -= 1
+        self._add("</tip>\n")
 
     def visit_warning(self, node):
         self._add("<warning>\n")
@@ -460,11 +638,21 @@ class DocBookTranslator(nodes.NodeVisitor):
         self.indent_level -= 1
         self._add("</warning>\n")
 
-    def visit_tip(self, node):
-        self._add("<tip>\n")
-        self.indent_level += 1
+    #
+    # Error encountered...
+    #
 
-    def depart_tip(self, node):
-        self.indent_level -= 1
-        self._add("</tip>\n")
+    def visit_problematic(self, node):
+        self.visit_comment(node)
+        self._add("== ERROR ==\n")
+
+    def depart_problematic(self, node):
+        self.depart_comment(node)
+
+    def visit_system_message(self, node):
+        self.visit_comment(node)
+        self._add("== System Message ==\n")
+
+    def depart_system_message(self, node):
+        self.depart_comment(node)
 
