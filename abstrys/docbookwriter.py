@@ -13,6 +13,23 @@
 #
 from docutils import nodes, writers
 from docutils.parsers import rst
+import lxml.etree as etree
+
+# import sys and set default encoding to utf-8
+import sys
+reload(sys)
+sys.setdefaultencoding('utf-8')
+
+#from docutils.parsers.rst import directives
+#import sphinx.directives
+#directives.register_directive('index', sphinx.directives.Index)
+
+def _print_error(text, node = None):
+    """Prints an error string and optionally, the node being worked on."""
+    sys.stderr.write('%s: %s\n' % (__name__, text))
+    if node:
+        sys.stderr.write("  %s\n" % str(node))
+
 
 class TitleAbbrev(rst.Directive):
     required_arguments = 0
@@ -30,7 +47,7 @@ class TitleAbbrev(rst.Directive):
         admonition_node = self.node_class(rawsource=text)
         # Parse the directive contents.
         self.state.nested_parse(self.content, self.content_offset,
-                                admonition_node)
+                admonition_node)
         return [admonition_node]
 
 
@@ -63,179 +80,228 @@ class DocBookTranslator(nodes.NodeVisitor):
         self.content = []
         self.document_type = document_type
         self.document_id = document_id
-
-        self.comment_level = 0
-
-        self.indent_level = 0
-        self.indent_text = "  "
+        self.subs = []
 
         self.in_pre_block = False
         self.in_figure = False
+        self.skip_text_processing = False
+
+        # self.estack is a stack of etree nodes. The bottom of the stack should
+        # always be the base element (the document). The top of the stack is
+        # the element currently being processed.
+        self.estack = []
+        self.tb = etree.TreeBuilder()
 
     #
     # functions used by the translator.
     #
 
-    def _add(self, string):
-        """Adds the given string to the contents at the current indent
-        level."""
-        self.content.append(self.indent_text * self.indent_level)
-        self.content.append(string)
-
-    def _add_inline(self, string):
-        """Add the string to the contents without regard for indent level."""
-        self.content.append(string)
-
     def astext(self):
-        return ''.join(self.content)
+        doc = self.tb.close()
+        self.indent(doc)
+        et = etree.ElementTree(doc)
+        rep = etree.tostring(et, encoding="utf-8")
+        rep = rep + '\n'.join(self.subs)
+        return rep
+
+
+    def _add_element_title(self, title_name, title_attribs = {}):
+        """Add a title to te current element."""
+        self._push_element('title', title_attribs)
+        self.tb.data(title_name)
+        return self.tb_end('title')
+
+
+    def _push_element(self, name, attribs = {}):
+        e = self.tb.start(name, attribs)
+        self.estack.append(e)
+        return e
+
+
+    def _pop_element(self):
+        e = self.estack.pop()
+        return self.tb.end(e.tag)
+
+
+    def indent(self, elem, level=0):
+
+        i = "\n" + level * "  "
+
+        if len(elem):
+            if not elem.text or not elem.text.strip():
+                elem.text = i + "  "
+            if not elem.tail or not elem.tail.strip():
+                elem.tail = i
+            for elem in elem:
+                self.indent(elem, level+1)
+            if not elem.tail or not elem.tail.strip():
+                elem.tail = i
+        else:
+            if level and (not elem.tail or not elem.tail.strip()):
+                elem.tail = i
+
 
     #
     # document parts
     #
 
     def visit_abstract(self, node):
-        self._add("<abstract>")
+        self._push_element('abstract')
+
 
     def depart_abstract(self, node):
-        self._add("</abstract>\n")
+        self._pop_element()
+
 
     def visit_titleabbrev(self, node):
-        self._add("<titleabbrev>")
-        pass
+        self._push_element('titleabbrev')
+
 
     def depart_titleabbrev(self, node):
-        self._add("</titleabbrev>\n")
-        pass
+        self._pop_element()
+
 
     def visit_address(self, node):
         self.visit_literal_block(node)
 
+
     def depart_address(self, node):
         self.depart_literal_block(node)
 
+
     def visit_block_quote(self, node):
-        self._add('<blockquote>\n')
-        self.indent_level += 1
+        self._push_element('blockquote')
+
 
     def depart_block_quote(self, node):
-        self.indent_level -= 1
-        self._add('</blockquote>\n')
+        self._pop_element()
+
 
     def visit_comment(self, node):
-        if self.comment_level == 0:
-            self._add('<!--')
-        self.comment_level += 1
+        # make a comment element
+        self.tb.comment(' %s ' % str(node.children[0]))
+        self.skip_text_processing = True
+
 
     def depart_comment(self, node):
-        if self.comment_level == 1:
-            self._add_inline('-->\n')
-        self.comment_level -= 1
+        self.skip_text_processing = False
+
 
     def visit_document(self, node):
+        """Create the document itself."""
+        attribs = {}
+
         if self.document_id != None:
-            self._add('<%s id="%s">\n' % (self.document_type, self.document_id))
+            attribs['id'] = self.document_id
         elif len(node['ids']) > 0:
-            self._add('<%s id="%s">\n' % (self.document_type, ''.join(node['ids'])))
-        else:
-            self._add('<%s>\n' % self.document_type)
-        self.indent_level +=1
+            attribs['id'] = str(node['ids'][0])
+
+        self._push_element(self.document_type, attribs)
+
 
     def depart_document(self, node):
-        self.indent_level -= 1
-        self._add('</%s>\n' % self.document_type)
+        self._pop_element()
+
 
     def visit_paragraph(self, node):
-        self._add('<para>')
+        self._push_element('para')
+
 
     def depart_paragraph(self, node):
-        self._add_inline('</para>\n')
+        self._pop_element()
+
 
     def visit_section(self, node):
+        attribs = {}
+
         if len(node['ids']) > 0:
-            self._add_inline('\n')
-            self._add('<section id="%s">\n' % ''.join(node['ids']))
-        else:
-            self._add('<section>\n')
-        self.indent_level += 1
+            attribs['id'] = str(node['ids'][0])
+
+        self._push_element('section', attribs)
+
 
     def depart_section(self, node):
-        self.indent_level -= 1
-        self._add('</section>\n')
+        self._pop_element()
+
 
     def visit_substitution_definition(self, node):
-        pass
+        # substitution references don't seem to be caught by the processor.
+        # Otherwise, I'd have this code here:
+        # sub_name = node['names'][0]
+        # sub_text = str(node.children[0])
+        # if sub_text[0:2] == '\\u':
+        #     sub_text = '&#%s;' % sub_text[2:]
+        # self.subs.append('<!ENTITY %s "%s">' % (sub_name, sub_text))
+        self.skip_text_processing = True
+
 
     def depart_substitution_definition(self, node):
-        pass
+        self.skip_text_processing = False
+
 
     def visit_substitution_reference(self, node):
-        subst_def = ''.join(node)
-        self._add_inline('&%s;' % subst_def)
+        #self.tb.data('&%s;' % str(node))
+        self.skip_text_processing = True
+
 
     def depart_substitution_reference(self, node):
-        pass
+        self.skip_text_processing = False
+
 
     def visit_subtitle(self, node):
-        self._add('<subtitle>')
+        self._push_element('subtitle')
+
 
     def depart_subtitle(self, node):
-        self._add_inline('</subtitle>\n')
+        self._pop_element()
+
 
     def visit_title(self, node):
-        title_id = None
+        attribs = {}
         # first check to see if an id was supplied.
         if len(node['ids']) > 0:
-            title_id = ''.join(node['ids'])
-            print "Title ID supplied: %s" % title_id
+            attribs['id'] = str(node['ids'][0])
         elif len(node.parent['ids']) > 0:
             # If the parent node has an ID, we can use that and add '.title' at
             # the end to make a deterministic title ID.
-            title_id = '%s.title' % ''.join(node.parent['ids'])
-            print "Using parent title ID: %s" % title_id
+            attribs['id'] = '%s.title' % str(node.parent['ids'][0])
 
-        if title_id != None:
-            self._add('<title id="%s">' % title_id)
-        else:
-            self._add('<title>')
+        self._push_element('title', attribs)
+
 
     def depart_title(self, node):
-        self._add_inline('</title>\n')
+        self._pop_element()
+
 
     def visit_topic(self, node):
         self.visit_section(node)
 
+
     def depart_topic(self, node):
         self.depart_section(node)
 
+
     def visit_Text(self, node):
-        if self.in_pre_block or '\n' not in node:
-            self._add_inline(node)
-        else:
-            first = True
-            lines = node.split('\n')
-            for line in lines:
-                if first:
-                    self._add_inline('%s' % line)
-                    first = False
-                    self.indent_level += 1
-                else:
-                    self._add_inline('\n')
-                    self._add('%s' % line)
-            self.indent_level -= 1
+        if self.skip_text_processing:
+            return
+        self.tb.data(str(node))
+
 
     def depart_Text(self, node):
         pass
 
+
     def visit_include(self, node):
         """Include as an xi:include"""
-        print "Include"
-        print node
+        _print_error("include found: " % str(node))
+
 
     def visit_title_reference(self, node):
-        self._add_inline("<citetitle>");
+        self._push_element('citetitle')
+
 
     def depart_title_reference(self, node):
-        self._add_inline("</citetitle>");
+        self._pop_element()
 
     #
     # link parts
@@ -243,22 +309,21 @@ class DocBookTranslator(nodes.NodeVisitor):
 
     def visit_reference(self, node):
         if node.hasattr('refid'):
-            self._add_inline('<link linkend="%s">' % node['refid'])
+            self._push_element('link', {'linkend': node['refid']})
         elif node.hasattr('refuri'):
-            self._add_inline('<ulink url="%s">' % node['refuri'])
+            self._push_element('ulink', {'url': node['refuri']})
         else:
-            self._add_inline('<!-- FIXME: unknown reference: -->')
+            _print_error('unknown reference', node)
+
 
     def depart_reference(self, node):
-        if node.hasattr('refid'):
-            self._add_inline('</link>')
-        elif node.hasattr('refuri'):
-            self._add_inline('</ulink>')
-        else:
-            self._add_inline('<!-- end unknown reference -->')
+        if node.hasattr('refid') or node.hasattr('refuri'):
+            self._pop_element()
+
 
     def visit_target(self, node):
         pass
+
 
     def depart_target(self, node):
         pass
@@ -269,86 +334,92 @@ class DocBookTranslator(nodes.NodeVisitor):
     #
 
     def visit_bullet_list(self, node):
-        self._add("<itemizedlist>\n")
-        self.indent_level += 1
+        self._push_element('itemizedlist')
+
 
     def depart_bullet_list(self, node):
-        self.indent_level -= 1
-        self._add("</itemizedlist>\n")
+        self._pop_element()
+
 
     def visit_enumerated_list(self, node):
-        self._add("<orderedlist>\n")
-        self.indent_level += 1
+        self._push_element('orderedlist')
+
 
     def depart_enumerated_list(self, node):
-        self.indent_level -= 1
-        self._add("</orderedlist>\n")
+        self._pop_element()
+
 
     def visit_list_item(self, node):
-        self._add("<listitem>\n")
-        self.indent_level += 1
+        self._push_element('listitem')
+
 
     def depart_list_item(self, node):
-        self.indent_level -= 1
-        self._add("</listitem>\n")
+        self._pop_element()
+
 
     def visit_definition_list(self, node):
-        self._add('<variablelist>\n')
-        self.indent_level += 1
+        self._push_element('variablelist')
+
 
     def depart_definition_list(self, node):
-        self.indent_level -= 1
-        self._add('</variablelist>\n')
+        self._pop_element()
+
 
     def visit_definition_list_item(self, node):
-        self._add('<varlistentry>\n')
-        self.indent_level += 1
+        self._push_element('varlistentry')
+
 
     def depart_definition_list_item(self, node):
-        self.indent_level -= 1
-        self._add('</varlistentry>\n')
+        self._pop_element()
+
 
     def visit_term(self, node):
-        self._add('<term>')
+        self._push_element('term')
+
 
     def depart_term(self, node):
-        self._add_inline('</term>\n')
+        self._pop_element()
+
 
     def visit_definition(self, node):
         self.visit_list_item(node)
 
+
     def depart_definition(self, node):
         self.depart_list_item(node)
 
+
     def visit_field_list(self, node):
         self.visit_table(node)
-        self._add('<tgroup cols="2">\n')
-        self.indent_level += 1
-        self._add('<tbody>\n')
-        self.indent_level += 1
+        self._push_element('tgroup', {'cols': '2'})
+        self._push_element('tbody')
+
 
     def depart_field_list(self, node):
-        self.indent_level -= 1
-        self._add('</tbody>\n')
-        self.indent_level -= 1
-        self._add('</tgroup>\n')
+        self._pop_element() # tbody
+        self._pop_element() # tgroup
         self.depart_table(node)
+
 
     def visit_field(self, node):
         self.visit_row(node)
 
+
     def depart_field(self, node):
         self.depart_row(node)
 
+
     def visit_field_name(self, node):
         self.visit_entry(node)
-        self._add('<para><emphasis role="strong">')
-        pass
+        self._push_element('para')
+        self._push_element('emphasis', {'role': 'strong'})
+
 
     def depart_field_name(self, node):
-        self._add_inline('</emphasis></para>\n')
+        self._pop_element() # emphasis
+        self._pop_element() # para
         self.depart_entry(node)
-        pass
+
 
     def visit_field_body(self, node):
         self.visit_entry(node)
@@ -363,143 +434,161 @@ class DocBookTranslator(nodes.NodeVisitor):
     #
 
     def start_mediaobject(self):
-        self._add("<mediaobject>\n")
-        self.indent_level += 1
+        sys.stderror.write("ERROR: start_mediaobject was called!")
+
 
     def end_mediaobject(self):
-        self.indent_level -= 1
-        self._add("</mediaobject>\n")
+        sys.stderror.write("ERROR: end_mediaobject was called!")
+
 
     def visit_image(self, node):
-        # images can exist outside of figures in the doctree, but figures
-        # always contain an image.
-        if not self.in_figure:
-            self.start_mediaobject()
+        # if not in an enclosing figure, then we need to start a mediaobject
+        # here.
+        if self.in_figure == False:
+            self._push_element('mediaobject')
 
-        self._add("<imageobject>\n")
-        self.indent_level += 1
+        self._push_element('imageobject')
 
         # Many options are supported for imagedata
-        imagedata_parts = ['<imagedata']
+        imagedata_attribs = {}
 
         if node.hasattr('uri'):
-            imagedata_parts.append('fileref="%s"' % node['uri'])
+            imagedata_attribs['fileref'] = node['uri']
         else:
-            imagedata_parts.append('eek="%s"' % str(node))
+            # unknown attribute
+            imagedata_attribs['eek'] = str(node)
 
         if node.hasattr('height'):
-            pass
+            pass # not in docbook
+
         if node.hasattr('width'):
-            pass
+            pass # not in docbook
+
         if node.hasattr('scale'):
-            imagedata_parts.append('scale="%s"' % node['scale'])
+            imagedata_attribs['scale'] = str(node['scale'])
+
         if node.hasattr('align'):
             alignval = node['align']
             if (alignval == 'top' or alignval == 'middle' or alignval ==
                 'bottom'):
               # top, middle, bottom all refer to the docbook 'valign'
               # attribute.
-              imagedata_parts.append('valign="%s"' % alignval)
+              imagedata_attribs['valign'] = alignval
             else:
               # left, right, center stay as-is
-              imagedata_parts.append('align="%s"' % alignval)
+              imagedata_attribs['align'] = alignval
+
         if node.hasattr('target'):
-            pass
-        self._add(' '.join(imagedata_parts))
-        self._add_inline('>\n')
+            _print_error('no target attribute supported for images!')
+
+        self._push_element('imagedata', imagedata_attribs)
+        self._pop_element()
+
         # alt text?
         if node.hasattr('alt'):
-            self._add('<textobject>\n')
-            self.indent_level += 1
-            self._add('<phrase>%s</phrase>\n' % node['alt'])
-            self.indent_level -= 1
-            self._add('</textobject>\n')
+            self._push_element('textobject')
+            self._push_element('phrase')
+            self.tb.data(node['alt'])
+            self._pop_element() # phrase
+            self._pop_element() # textobject
+
 
     def depart_image(self, node):
-        self.indent_level -= 1
-        self._add("</imageobject>\n")
-        if not self.in_figure:
-            self.end_mediaobject()
+        self._pop_element() # imageobject
+        # if not in an enclosing figure, then we need to close the mediaobject
+        # here.
+        if self.in_figure == False:
+            self._pop_element() # mediaobject
+
 
     def visit_figure(self, node):
-        self.start_mediaobject()
+        self._push_element('mediaobject')
+        self.in_figure = True
+
 
     def depart_figure(self, node):
-        self.end_mediaobject()
+        self._pop_element()
+        self.in_figure = False
+
 
     def visit_caption(self, node):
-        self._add('<caption>\n')
-        self.indent_level += 1
+        self._push_element('caption')
         self.visit_paragraph(node)
+
 
     def depart_caption(self, node):
         self.depart_paragraph(node)
-        self.indent_level -= 1
-        self._add('</caption>\n')
+        self._pop_element()
+
 
     #
     # table parts
     #
 
     def visit_table(self, node):
-        self._add('<table>\n')
-        self.indent_level += 1
+        self._push_element('table')
+
 
     def depart_table(self, node):
-        self.indent_level -= 1
-        self._add("</table>\n")
+        self._pop_element()
+
 
     def visit_tgroup(self, node):
+        attribs = {}
+
         if node.hasattr('cols'):
-            self._add('<tgroup cols="%s">\n' % node['cols'])
-        else:
-            self._add("<tgroup>\n")
-        self.indent_level += 1
+            attribs['cols'] =  str(node['cols'])
+
+        self._push_element('tgroup', attribs)
+
 
     def depart_tgroup(self, node):
-        self.indent_level -= 1
-        self._add("</tgroup>\n")
+        self._pop_element()
+
 
     def visit_colspec(self, node):
+        attribs = {}
+
         if node.hasattr('colwidth'):
-            self._add('<colspec colwidth="%s"/>\n' % node['colwidth'])
-        else:
-            self._add('<colspec/>\n')
+            attribs['colwidth'] = str(node['colwidth'])
+
+        self._push_element('colspec', attribs)
+
 
     def depart_colspec(self, node):
-        pass
+        self._pop_element()
+
 
     def visit_thead(self, node):
-        self._add("<thead>\n")
-        self.indent_level += 1
+        self._push_element('thead')
+
 
     def depart_thead(self, node):
-        self.indent_level -= 1
-        self._add("</thead>\n")
+        self._pop_element()
+
 
     def visit_row(self, node):
-        self._add("<row>\n")
-        self.indent_level += 1
+        self._push_element('row')
+
 
     def depart_row(self, node):
-        self.indent_level -= 1
-        self._add("</row>\n")
+        self._pop_element()
+
 
     def visit_entry(self, node):
-        self._add("<entry>\n")
-        self.indent_level += 1
+        self._push_element('entry')
+
 
     def depart_entry(self, node):
-        self.indent_level -= 1
-        self._add("</entry>\n")
+        self._pop_element()
+
 
     def visit_tbody(self, node):
-        self._add("<tbody>\n")
-        self.indent_level += 1
+        self._push_element('tbody')
+
 
     def depart_tbody(self, node):
-        self.indent_level -= 1
-        self._add("</tbody>\n")
+        self._pop_element()
 
 
     #
@@ -507,53 +596,66 @@ class DocBookTranslator(nodes.NodeVisitor):
     #
 
     def visit_emphasis(self, node):
-        self._add_inline('<emphasis>')
+        self._push_element('emphasis')
+
 
     def depart_emphasis(self, node):
-        self._add_inline('</emphasis>')
+        self._pop_element()
+
 
     def visit_strong(self, node):
-        self._add_inline('<emphasis role="strong">')
+        self._push_element('emphasis', {'role': 'strong'})
+
 
     def depart_strong(self, node):
-        self.depart_emphasis(node)
+        self._pop_element()
+
 
     def visit_subscript(self, node):
-        self._add_inline('<subscript>')
+        self._push_element('subscript')
+
 
     def depart_subscript(self, node):
-        self._add_inline('</subscript>')
+        self._pop_element()
+
 
     def visit_superscript(self, node):
-        self._add_inline('<superscript>')
+        self._push_element('superscript')
+
 
     def depart_superscript(self, node):
-        self._add_inline('</superscript>')
+        self._pop_element()
+
 
     #
     # Code and such
     #
 
     def visit_literal_block(self, node):
+        attribs = {}
         if node.hasattr('classes') and len(node['classes']) > 0:
-            language = node['classes'][1]
-            self._add('<programlisting language="%s">\n' % language)
-        else:
-            self._add("<programlisting>\n")
+            attribs['language'] = node['classes'][1]
+
+        self._push_element("programlisting", attribs)
         self.in_pre_block = True
 
+
     def depart_literal_block(self, node):
-        self._add_inline("</programlisting>\n")
+        self._pop_element()
         self.in_pre_block = False
 
+
     def visit_literal(self, node):
-        self._add_inline('<code>')
+        self._push_element('code')
+
 
     def depart_literal(self, node):
-        self._add_inline('</code>')
+        self._pop_element()
+
 
     def visit_inline(self, node):
         pass
+
 
     def depart_inline(self, node):
         pass
@@ -567,92 +669,99 @@ class DocBookTranslator(nodes.NodeVisitor):
         # set the title.
         self.visit_note(node)
 
+
     def depart_admonition(self, node):
         self.depart_note(node)
 
+
     def visit_attention(self, node):
         self.visit_important(node)
-        self._add('<title>Attention</title>\n')
+        self._add_element_title('Attention')
+
 
     def depart_attention(self, node):
         self.depart_important(node)
 
+
     def visit_caution(self, node):
-        self._add("<caution>\n")
-        self.indent_level += 1
+        self._push_element('caution')
+
 
     def depart_caution(self, node):
-        self.indent_level -= 1
-        self._add("</caution>\n")
+        self._pop_element()
+
 
     def visit_danger(self, node):
         self.visit_warning(node)
-        self._add('<title>Danger</title>\n')
+        self._add_element_title('Danger')
+
 
     def depart_danger(self, node):
         self.depart_warning(node)
 
+
     def visit_error(self, node):
         self.visit_important(node)
-        self._add('<title>Error</title>\n')
+        self._add_element_title('Error')
+
 
     def depart_error(self, node):
         self.depart_important(node)
 
+
     def visit_hint(self, node):
         self.visit_tip(node)
-        self._add('<title>Hint</title>\n')
+        self._add_element_title('Hint')
+
 
     def depart_hint(self, node):
         self.depart_tip(node)
 
+
     def visit_important(self, node):
-        self._add("<important>\n")
-        self.indent_level += 1
+        self._push_element('important')
+
 
     def depart_important(self, node):
-        self.indent_level -= 1
-        self._add("</important>\n")
+        self._pop_element()
+
 
     def visit_note(self, node):
-        self._add("<note>\n")
-        self.indent_level += 1
+        self._push_element('note')
+
 
     def depart_note(self, node):
-        self.indent_level -= 1
-        self._add("</note>\n")
+        self._pop_element()
+
 
     def visit_tip(self, node):
-        self._add("<tip>\n")
-        self.indent_level += 1
+        self._push_element('tip')
+
 
     def depart_tip(self, node):
-        self.indent_level -= 1
-        self._add("</tip>\n")
+        self._pop_element()
+
 
     def visit_warning(self, node):
-        self._add("<warning>\n")
-        self.indent_level += 1
+        self._push_element('warning')
+
 
     def depart_warning(self, node):
-        self.indent_level -= 1
-        self._add("</warning>\n")
+        self._pop_element()
 
     #
     # Error encountered...
     #
 
     def visit_problematic(self, node):
-        self.visit_comment(node)
-        self._add("== ERROR ==\n")
+        _print_error('problematic node', node)
 
     def depart_problematic(self, node):
-        self.depart_comment(node)
+        pass
 
     def visit_system_message(self, node):
-        self.visit_comment(node)
-        self._add("== System Message ==\n")
+        _print_error('system message', node)
 
     def depart_system_message(self, node):
-        self.depart_comment(node)
+        pass
 
