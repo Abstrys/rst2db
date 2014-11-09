@@ -28,25 +28,26 @@ class Rst2Db:
         self.USAGE = """
 rst2db - convert reStructuredText to DocBook
 
-Usage::
+**Usage:**
 
+:
   rst2db <filename> [-e root_element] [-o output_file] [-t template_file]
 
 Only the filename to process is required. All other settings are optional.
 
-Settings:
+**Settings:**
 
-  -e root_element   set the root element of the resulting docbook file. If this
-                    is not specified, then 'section' will be used.
+  -e *root_element*   set the root element of the resulting docbook file. If this
+                      is not specified, then 'section' will be used by default.
 
-  -o output_file    set the output filename to write. If this is not specified,
-                    then output will be sent to stdout.
+  -o *output_file*    set the output filename to write. If this is not
+                      specified, then output will be sent to ``stdout``.
 
-  -t template_file  set a template file to use to dress the output. You must
-                    have Jinja2 installed to use this feature.
+  -t *template_file*  set a template file to use to dress the output. You must
+                      have Jinja2 installed to use this feature.
 
-                    Use {{data.root_element}} and {{data.contents}} to
-                    represent the output of this script in your template.
+                      Use {{data.root_element}} and {{data.contents}} to
+                      represent the output of this script in your template.
             """
         self.input_filename = None
         self.output_filename = None
@@ -131,9 +132,11 @@ Settings:
             # element's ID.
             (path, filename) = os.path.split(self.output_filename)
             (doc_id, ext) = os.path.splitext(filename)
-            docutils_writer = DocBookWriter(self.root_element, doc_id)
+            docutils_writer = DocBookWriter(self.root_element, doc_id,
+                    output_xml_header=(self.template_filename == None))
         else:
-            docutils_writer = DocBookWriter(self.root_element)
+            docutils_writer = DocBookWriter(self.root_element,
+                    output_xml_header=(self.template_filename == None))
 
         # get the docbook output.
         docbook_contents = publish_string(input_file_contents,

@@ -54,17 +54,18 @@ class TitleAbbrev(rst.Directive):
 class DocBookWriter(writers.Writer):
     """A docutils writer for DocBook."""
 
-    def __init__(self, root_element, document_id = None):
+    def __init__(self, root_element, document_id = None, output_xml_header=True):
         """Initialize the writer. Takes the root element of the resulting
         DocBook output as its sole argument."""
         writers.Writer.__init__(self)
         self.document_type = root_element
         self.document_id = document_id
+        self.output_xml_header = output_xml_header
 
     def translate(self):
         """Call the translator to translate the document"""
         self.visitor = DocBookTranslator(self.document, self.document_type,
-                self.document_id)
+                self.document_id, self.output_xml_header)
         self.document.walkabout(self.visitor)
         self.output = self.visitor.astext()
 
@@ -72,7 +73,7 @@ class DocBookWriter(writers.Writer):
 class DocBookTranslator(nodes.NodeVisitor):
     """A docutils translator for DocBook."""
 
-    def __init__(self, document, document_type, document_id = None):
+    def __init__(self, document, document_type, document_id = None, output_xml_header=True):
         """Initialize the translator. Takes the root element of the resulting
         DocBook output as its sole argument."""
         nodes.NodeVisitor.__init__(self, document)
@@ -80,7 +81,7 @@ class DocBookTranslator(nodes.NodeVisitor):
         self.content = []
         self.document_type = document_type
         self.document_id = document_id
-        self.subs = []
+        self.output_xml_header = output_xml_header
 
         self.in_pre_block = False
         self.in_figure = False
@@ -98,10 +99,12 @@ class DocBookTranslator(nodes.NodeVisitor):
 
     def astext(self):
         doc = self.tb.close()
-        self.indent(doc)
         et = etree.ElementTree(doc)
-        rep = etree.tostring(et, encoding="utf-8")
-        rep = rep + '\n'.join(self.subs)
+        if self.output_xml_header:
+            rep = etree.tostring(et, encoding="utf-8", standalone=True,
+                    pretty_print=True)
+        else:
+            rep = etree.tostring(et, encoding="utf-8", pretty_print=True)
         return rep
 
 
@@ -121,24 +124,6 @@ class DocBookTranslator(nodes.NodeVisitor):
     def _pop_element(self):
         e = self.estack.pop()
         return self.tb.end(e.tag)
-
-
-    def indent(self, elem, level=0):
-
-        i = "\n" + level * "  "
-
-        if len(elem):
-            if not elem.text or not elem.text.strip():
-                elem.text = i + "  "
-            if not elem.tail or not elem.tail.strip():
-                elem.tail = i
-            for elem in elem:
-                self.indent(elem, level+1)
-            if not elem.tail or not elem.tail.strip():
-                elem.tail = i
-        else:
-            if level and (not elem.tail or not elem.tail.strip()):
-                elem.tail = i
 
 
     #
