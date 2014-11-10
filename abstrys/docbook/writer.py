@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 #
-# docbookwriter.py
-# ================
+# abstrys.docbook.writer
+# ----------------------
 #
 # A module for docutils that converts from a doctree to DocBook output.
 #
@@ -138,14 +138,6 @@ class DocBookTranslator(nodes.NodeVisitor):
         self._pop_element()
 
 
-    def visit_titleabbrev(self, node):
-        self._push_element('titleabbrev')
-
-
-    def depart_titleabbrev(self, node):
-        self._pop_element()
-
-
     def visit_address(self, node):
         self.visit_literal_block(node)
 
@@ -172,6 +164,22 @@ class DocBookTranslator(nodes.NodeVisitor):
         self.skip_text_processing = False
 
 
+    def visit_compact_paragraph(self, node):
+        self.visit_paragraph(node)
+
+
+    def depart_compact_paragraph(self, node):
+        self.depart_paragraph(node)
+
+
+    def visit_compound(self, node):
+        self.tb.comment(' %s ' % str(node.children[0]))
+
+
+    def depart_compound(self, node):
+        pass
+
+
     def visit_document(self, node):
         """Create the document itself."""
         attribs = {}
@@ -186,6 +194,20 @@ class DocBookTranslator(nodes.NodeVisitor):
 
     def depart_document(self, node):
         self._pop_element()
+
+
+    def visit_include(self, node):
+        """Include as an xi:include"""
+        _print_error("include found: " % str(node))
+
+
+    def visit_index(self, node):
+        # TODO figure out how to do this in docbook.
+        pass
+
+
+    def depart_index(self, node):
+        pass
 
 
     def visit_paragraph(self, node):
@@ -258,6 +280,22 @@ class DocBookTranslator(nodes.NodeVisitor):
         self._pop_element()
 
 
+    def visit_title_reference(self, node):
+        self._push_element('citetitle')
+
+
+    def depart_title_reference(self, node):
+        self._pop_element()
+
+
+    def visit_titleabbrev(self, node):
+        self._push_element('titleabbrev')
+
+
+    def depart_titleabbrev(self, node):
+        self._pop_element()
+
+
     def visit_topic(self, node):
         self.visit_section(node)
 
@@ -275,18 +313,6 @@ class DocBookTranslator(nodes.NodeVisitor):
     def depart_Text(self, node):
         pass
 
-
-    def visit_include(self, node):
-        """Include as an xi:include"""
-        _print_error("include found: " % str(node))
-
-
-    def visit_title_reference(self, node):
-        self._push_element('citetitle')
-
-
-    def depart_title_reference(self, node):
-        self._pop_element()
 
     #
     # link parts

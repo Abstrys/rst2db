@@ -12,10 +12,9 @@
 import sys
 import os
 from docutils.core import publish_string
-from docutils.core import publish_doctree
 from docutils.core import publish_cmdline
 from docutils.core import publish_file
-from abstrys.docbookwriter import DocBookWriter
+from abstrys.docbook.writer import DocBookWriter
 
 def printerr(error_text):
     """Prints an error message to stderr"""
