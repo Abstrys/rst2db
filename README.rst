@@ -1,10 +1,11 @@
 rst2db.py
 =========
 
-A reStructuredText to DocBook converter using Python's docutils.
+A reStructuredText to DocBook command-line converter using Python's docutils,
+with an included Sphinx builder.
 
-Usage
------
+Using the command-line utility
+------------------------------
 
 ::
 
@@ -25,6 +26,38 @@ Settings:
 
                     Use {{data.root_element}} and {{data.contents}} to
                     represent the output of this script in your template.
+
+
+Using the Sphinx builder
+------------------------
+
+Configuration
+~~~~~~~~~~~~~
+
+To build docbook output with Sphinx, add `abstrys.docbook.builder` to the
+*extensions* list in ``conf.py``::
+
+ extensions = [
+    ... other extensions here ...
+    abstrys.docbook.builder
+    ]
+
+There are two configurable parameters for ``conf.py`` that correspond to
+``rst2db.py`` parameters:
+
+
+:docbook_template_file: template file that will be used to position the document
+                        parts. Requires Jinja2 to be installed if specified.
+
+:docbook_default_root_element: default root element for a file-level document.
+                               Default is 'section'.
+
+Running a build
+~~~~~~~~~~~~~~~
+
+The builder is registered with the name 'docbook', so to run a build that uses
+the builder, run ``sphinx-build`` with ``-b docbook``.
+
 
 License
 -------
