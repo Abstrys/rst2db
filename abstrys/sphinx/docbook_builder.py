@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 #
-# abstrys.docbook.builder
-# -----------------------
+# abstrys.sphinx.docbook_builder
+# ------------------------------
 #
 # A DocBook builder for Sphinx, using rst2db's docbook writer.
 #
 # by Eron Hennessey
 
-from abstrys.docbook.writer import DocBookWriter
+from abstrys.docutils.docbook_writer import DocBookWriter
 from docutils.core import publish_from_doctree
 from sphinx.builders.text import TextBuilder
 import os, sys
@@ -25,12 +25,12 @@ class DocBookBuilder(TextBuilder):
         try:
             import jinja2
         except ImportError:
-            sys.stderr.write("DocBookWriter -- Jinja2 is not installed: can't use template!\n")
+            sys.stderr.write("DocBookBuilder -- Jinja2 is not installed: can't use template!\n")
             sys.exit(1)
 
         if not os.path.exists(self.template_filename):
             sys.stderr.write(
-                    "DocBookWriter -- template file doesn't exist: %s\n" %
+                    "DocBookBuilder -- template file doesn't exist: %s\n" %
                     self.template_filename)
             sys.exit(1)
 
@@ -46,7 +46,6 @@ class DocBookBuilder(TextBuilder):
 
     def get_target_uri(self, docname, typ=None):
        return './%s.xml' % docname
-
 
 
     def prepare_writing(self, docnames):
