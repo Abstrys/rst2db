@@ -95,10 +95,6 @@ class DocBookTranslator(nodes.NodeVisitor):
 
 
     def _push_element(self, name, attribs = {}):
-        _print_error('pushing %s' % name)
-        for x in attribs:
-            _print_error('   attrib: %s="%s"' % (x, attribs[x]))
-
         if self.next_element_id:
             attribs['id'] = self.next_element_id
             self.next_element_id = None
@@ -142,7 +138,7 @@ class DocBookTranslator(nodes.NodeVisitor):
 
 
     def visit_comment(self, node):
-        # make a comment element
+        # ignore comments in the output.
         _print_error("ignoring comment:", node)
         self.skip_text_processing = True
 
@@ -169,22 +165,18 @@ class DocBookTranslator(nodes.NodeVisitor):
 
     def visit_document(self, node):
         """Create the document itself."""
-        _print_error("====\ndocument: %s"% self.document_id)
         pass
 
 
     def depart_document(self, node):
-        _print_error("====\n")
         pass
 
 
     def visit_include(self, node):
         """Include as an xi:include"""
-        _print_error("include found", node)
 
 
     def visit_index(self, node):
-        _print_error("index", node)
         pass
         #self._push_element('indexterm')
 
@@ -237,7 +229,6 @@ class DocBookTranslator(nodes.NodeVisitor):
         # if sub_text[0:2] == '\\u':
         #     sub_text = '&#%s;' % sub_text[2:]
         # self.subs.append('<!ENTITY %s "%s">' % (sub_name, sub_text))
-        _print_error("substitution definition", node)
         self.skip_text_processing = True
 
 
@@ -246,7 +237,6 @@ class DocBookTranslator(nodes.NodeVisitor):
 
 
     def visit_substitution_reference(self, node):
-        _print_error("substitution reference", node)
         #self.tb.data('&%s;' % str(node))
         self.skip_text_processing = True
 
@@ -289,7 +279,6 @@ class DocBookTranslator(nodes.NodeVisitor):
 
 
     def visit_titleabbrev(self, node):
-        _print_error("titleabbrev", node)
         self._push_element('titleabbrev')
 
 
@@ -298,7 +287,6 @@ class DocBookTranslator(nodes.NodeVisitor):
 
 
     def visit_topic(self, node):
-        _print_error("topic", node)
         self.visit_section(node)
 
 
@@ -684,7 +672,6 @@ class DocBookTranslator(nodes.NodeVisitor):
 
 
     def visit_inline(self, node):
-        _print_error("inline", node)
         pass
 
 
