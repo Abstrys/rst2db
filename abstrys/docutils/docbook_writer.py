@@ -14,41 +14,18 @@
 from docutils import nodes, writers
 from docutils.parsers import rst
 import lxml.etree as etree
+import os
 
 # import sys and set default encoding to utf-8
 import sys
 reload(sys)
 sys.setdefaultencoding('utf-8')
 
-#from docutils.parsers.rst import directives
-#import sphinx.directives
-#directives.register_directive('index', sphinx.directives.Index)
-
 def _print_error(text, node = None):
     """Prints an error string and optionally, the node being worked on."""
-    sys.stderr.write('%s: %s\n' % (__name__, text))
+    sys.stderr.write('\n%s: %s\n' % (__name__, text))
     if node:
         sys.stderr.write("  %s\n" % str(node))
-
-
-class TitleAbbrev(rst.Directive):
-    required_arguments = 0
-    optional_arguments = 0
-    final_argument_whitespace = False
-    option_spec = {}
-    has_content = True
-    node_class = None
-
-    def run(self):
-        # Raise an error if the directive does not have contents.
-        self.assert_has_content()
-        text = '\n'.join(self.content)
-        # Create the admonition node, to be populated by `nested_parse`.
-        admonition_node = self.node_class(rawsource=text)
-        # Parse the directive contents.
-        self.state.nested_parse(self.content, self.content_offset,
-                admonition_node)
-        return [admonition_node]
 
 
 class DocBookWriter(writers.Writer):
@@ -81,11 +58,13 @@ class DocBookTranslator(nodes.NodeVisitor):
         self.content = []
         self.document_type = document_type
         self.document_id = document_id
+        self.in_first_section = False
         self.output_xml_header = output_xml_header
 
         self.in_pre_block = False
         self.in_figure = False
         self.skip_text_processing = False
+        self.next_element_id = None
 
         # self.estack is a stack of etree nodes. The bottom of the stack should
         # always be the base element (the document). The top of the stack is
@@ -116,6 +95,14 @@ class DocBookTranslator(nodes.NodeVisitor):
 
 
     def _push_element(self, name, attribs = {}):
+        _print_error('pushing %s' % name)
+        for x in attribs:
+            _print_error('   attrib: %s="%s"' % (x, attribs[x]))
+
+        if self.next_element_id:
+            attribs['id'] = self.next_element_id
+            self.next_element_id = None
+
         e = self.tb.start(name, attribs)
         self.estack.append(e)
         return e
@@ -156,7 +143,7 @@ class DocBookTranslator(nodes.NodeVisitor):
 
     def visit_comment(self, node):
         # make a comment element
-        self.tb.comment(' %s ' % str(node.children[0]))
+        _print_error("ignoring comment:", node)
         self.skip_text_processing = True
 
 
@@ -173,7 +160,7 @@ class DocBookTranslator(nodes.NodeVisitor):
 
 
     def visit_compound(self, node):
-        self.tb.comment(' %s ' % str(node.children[0]))
+        pass
 
 
     def depart_compound(self, node):
@@ -182,32 +169,29 @@ class DocBookTranslator(nodes.NodeVisitor):
 
     def visit_document(self, node):
         """Create the document itself."""
-        attribs = {}
-
-        if self.document_id != None:
-            attribs['id'] = self.document_id
-        elif len(node['ids']) > 0:
-            attribs['id'] = str(node['ids'][0])
-
-        self._push_element(self.document_type, attribs)
+        _print_error("====\ndocument: %s"% self.document_id)
+        pass
 
 
     def depart_document(self, node):
-        self._pop_element()
+        _print_error("====\n")
+        pass
 
 
     def visit_include(self, node):
         """Include as an xi:include"""
-        _print_error("include found: " % str(node))
+        _print_error("include found", node)
 
 
     def visit_index(self, node):
-        # TODO figure out how to do this in docbook.
+        _print_error("index", node)
         pass
+        #self._push_element('indexterm')
 
 
     def depart_index(self, node):
         pass
+        #self._pop_element()
 
 
     def visit_paragraph(self, node):
@@ -221,10 +205,24 @@ class DocBookTranslator(nodes.NodeVisitor):
     def visit_section(self, node):
         attribs = {}
 
-        if len(node['ids']) > 0:
-            attribs['id'] = str(node['ids'][0])
+        # Do something special if this is the very first section in the
+        # document.
+        if self.in_first_section == False:
+            node['ids'][0] = self.document_id
+            self._push_element(self.document_type, {'id': self.document_id})
+            self.in_first_section = True
+            return
+
+        if self.next_element_id:
+            node['ids'][0] = self.next_element_id
+            attribs['id'] = self.next_element_id
+            self.next_element_id = None
+        else:
+            if len(node['ids']) > 0:
+                attribs['id'] = str(node['ids'][0])
 
         self._push_element('section', attribs)
+        # TODO - Collect other attributes.
 
 
     def depart_section(self, node):
@@ -239,6 +237,7 @@ class DocBookTranslator(nodes.NodeVisitor):
         # if sub_text[0:2] == '\\u':
         #     sub_text = '&#%s;' % sub_text[2:]
         # self.subs.append('<!ENTITY %s "%s">' % (sub_name, sub_text))
+        _print_error("substitution definition", node)
         self.skip_text_processing = True
 
 
@@ -247,6 +246,7 @@ class DocBookTranslator(nodes.NodeVisitor):
 
 
     def visit_substitution_reference(self, node):
+        _print_error("substitution reference", node)
         #self.tb.data('&%s;' % str(node))
         self.skip_text_processing = True
 
@@ -289,6 +289,7 @@ class DocBookTranslator(nodes.NodeVisitor):
 
 
     def visit_titleabbrev(self, node):
+        _print_error("titleabbrev", node)
         self._push_element('titleabbrev')
 
 
@@ -297,6 +298,7 @@ class DocBookTranslator(nodes.NodeVisitor):
 
 
     def visit_topic(self, node):
+        _print_error("topic", node)
         self.visit_section(node)
 
 
@@ -319,10 +321,27 @@ class DocBookTranslator(nodes.NodeVisitor):
     #
 
     def visit_reference(self, node):
+        internal_ref = False
+
+        # internal ref style #1: it declares itself internal
+        if node.hasattr('internal'):
+            internal_ref = node['internal']
+
+        # internal ref style #2: it hides as an external ref, with strange
+        # qualities.
+        if (node.hasattr('anonymous') and (node['anonymous'] == 1) and
+                node.hasattr('refuri') and (node['refuri'][0] == '_')):
+            internal_ref = True
+            node['refuri'] = node['refuri'][1:]
+
         if node.hasattr('refid'):
             self._push_element('link', {'linkend': node['refid']})
         elif node.hasattr('refuri'):
-            self._push_element('ulink', {'url': node['refuri']})
+            if internal_ref:
+                ref_name = os.path.splitext(node['refuri'])[0]
+                self._push_element('link', {'linkend': ref_name})
+            else:
+                self._push_element('ulink', {'url': node['refuri']})
         else:
             _print_error('unknown reference', node)
 
@@ -333,10 +352,15 @@ class DocBookTranslator(nodes.NodeVisitor):
 
 
     def visit_target(self, node):
-        pass
+        if node.hasattr('refid'):
+            if node['refid'] == 'index-0':
+                return
+            else:
+                self.next_element_id = node['refid']
 
 
     def depart_target(self, node):
+        #self._pop_element()
         pass
 
 
@@ -443,14 +467,6 @@ class DocBookTranslator(nodes.NodeVisitor):
     #
     # image parts
     #
-
-    def start_mediaobject(self):
-        sys.stderror.write("ERROR: start_mediaobject was called!")
-
-
-    def end_mediaobject(self):
-        sys.stderror.write("ERROR: end_mediaobject was called!")
-
 
     def visit_image(self, node):
         # if not in an enclosing figure, then we need to start a mediaobject
@@ -647,6 +663,9 @@ class DocBookTranslator(nodes.NodeVisitor):
         if node.hasattr('classes') and len(node['classes']) > 0:
             attribs['language'] = node['classes'][1]
 
+        if node.hasattr('language'):
+            attribs['language'] = node['language']
+
         self._push_element("programlisting", attribs)
         self.in_pre_block = True
 
@@ -665,6 +684,7 @@ class DocBookTranslator(nodes.NodeVisitor):
 
 
     def visit_inline(self, node):
+        _print_error("inline", node)
         pass
 
 

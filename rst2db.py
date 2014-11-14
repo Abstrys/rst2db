@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 #
 # rst2db.py
-# =========
+# =========IAMConsole_DirectURL
 #
 # A reStructuredText to DocBook conversion tool, using Python's docutils
 # library.
