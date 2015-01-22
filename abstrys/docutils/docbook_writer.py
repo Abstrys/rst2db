@@ -163,6 +163,15 @@ class DocBookTranslator(nodes.NodeVisitor):
         pass
 
 
+    def visit_docinfo(self, node):
+        _print_error("docinfo", node)
+        pass
+
+
+    def depart_docinfo(self, node):
+        pass
+
+
     def visit_document(self, node):
         """Create the document itself."""
         pass
@@ -648,11 +657,12 @@ class DocBookTranslator(nodes.NodeVisitor):
 
     def visit_literal_block(self, node):
         attribs = {}
-        if node.hasattr('classes') and len(node['classes']) > 0:
-            attribs['language'] = node['classes'][1]
 
         if node.hasattr('language'):
-            attribs['language'] = node['language']
+            if node.hasattr('classes') and len(node['classes']) > 0:
+                attribs['language'] = node['classes'][1]
+            else:
+                attribs['language'] = node['language']
 
         self._push_element("programlisting", attribs)
         self.in_pre_block = True

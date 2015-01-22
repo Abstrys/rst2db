@@ -14,7 +14,7 @@ import os
 from docutils.core import publish_string
 from docutils.core import publish_cmdline
 from docutils.core import publish_file
-from abstrys.docbook.writer import DocBookWriter
+from abstrys.docutils.docbook_writer import DocBookWriter
 
 def printerr(error_text):
     """Prints an error message to stderr"""
