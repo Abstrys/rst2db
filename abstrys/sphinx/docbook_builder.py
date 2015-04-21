@@ -28,19 +28,31 @@ class DocBookBuilder(TextBuilder):
             sys.stderr.write("DocBookBuilder -- Jinja2 is not installed: can't use template!\n")
             sys.exit(1)
 
-        if not os.path.exists(self.template_filename):
+        full_template_path = os.path.join(sphinx_app.env.srcdir,
+                        sphinx_app.config.docbook_template_file)
+
+        if not os.path.exists(full_template_path):
             sys.stderr.write(
                     "DocBookBuilder -- template file doesn't exist: %s\n" %
-                    self.template_filename)
+                    full_template_path)
             sys.exit(1)
 
         data = { 'root_element': self.root_element,
                  'contents': contents }
 
-        jinja2env = jinja2.Environment(loader=jinja2.FileSystemLoader('.'),
+        jinja2env = jinja2.Environment(
+                loader=jinja2.FileSystemLoader(sphinx_app.env.srcdir),
                 trim_blocks=True)
 
-        t = jinja2env.get_template(self.template_filename)
+        try:
+            t = jinja2env.get_template(self.template_filename)
+            t.render(data=data)
+        except:
+            sys.stderr.write(
+                    "DocBookBuilder -- Jinja2 couldn't load template at: %s" %
+                    full_template_path)
+            sys.exit(1)
+
         return t.render(data=data)
 
 

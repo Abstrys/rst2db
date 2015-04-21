@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from distutils.core import setup
+from setuptools import setup, find_packages
 
 long_desc = """
 Usage
@@ -30,9 +30,11 @@ setup(name='rst2db',
       description="""
         A reStructuredText to DocBook converter using Python's docutils.""",
       version='1.0',
-      requires=['docutils'],
-      packages=['abstrys/docutils','abstrys/sphinx'],
-      scripts=['rst2db.py'],
+      install_requires=['docutils>=0.12', 'lxml>=2.3'],
+      packages=find_packages(),
+      entry_points={
+          'console_scripts': [ 'rst2db = abstrys.cmd_rst2db:run' ],
+          },
       author='Eron Hennessey',
       author_email='eron@abstrys.com',
       url='https://github.com/Abstrys/rst2db',

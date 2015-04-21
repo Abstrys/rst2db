@@ -195,6 +195,14 @@ class DocBookTranslator(nodes.NodeVisitor):
         #self._pop_element()
 
 
+    def visit_literal_strong(self, node):
+        self._push_element('command')
+
+
+    def depart_literal_strong(self, node):
+        self._pop_element()
+
+
     def visit_paragraph(self, node):
         self._push_element('para')
 
