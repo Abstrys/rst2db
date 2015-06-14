@@ -23,7 +23,7 @@ def _print_error(text, node = None):
     """Prints an error string and optionally, the node being worked on."""
     sys.stderr.write('\n%s: %s\n' % (__name__, text))
     if node:
-        sys.stderr.write("  %s\n" % str(node))
+        sys.stderr.write(u"  %s\n" % unicode(node))
 
 
 class DocBookWriter(writers.Writer):
@@ -48,7 +48,8 @@ class DocBookWriter(writers.Writer):
 class DocBookTranslator(nodes.NodeVisitor):
     """A docutils translator for DocBook."""
 
-    def __init__(self, document, document_type, document_id = None, output_xml_header=True):
+    def __init__(self, document, document_type, document_id = None,
+                 output_xml_header=True):
         """Initialize the translator. Takes the root element of the resulting
         DocBook output as its sole argument."""
         nodes.NodeVisitor.__init__(self, document)
@@ -86,7 +87,7 @@ class DocBookTranslator(nodes.NodeVisitor):
 
 
     def _add_element_title(self, title_name, title_attribs = {}):
-        """Add a title to te current element."""
+        """Add a title to the current element."""
         self._push_element('title', title_attribs)
         self.tb.data(title_name)
         return self.tb_end('title')
@@ -96,7 +97,8 @@ class DocBookTranslator(nodes.NodeVisitor):
         if self.next_element_id:
             attribs['id'] = self.next_element_id
             self.next_element_id = None
-
+        elif 'id' in attribs and attribs['id'] is None:
+            del attribs['id']
         e = self.tb.start(name, attribs)
         self.estack.append(e)
         return e
@@ -226,7 +228,7 @@ class DocBookTranslator(nodes.NodeVisitor):
             self.next_element_id = None
         else:
             if len(node['ids']) > 0:
-                attribs['id'] = str(node['ids'][0])
+                attribs['id'] = unicode(node['ids'][0])
 
         self._push_element('section', attribs)
         # TODO - Collect other attributes.
@@ -240,7 +242,7 @@ class DocBookTranslator(nodes.NodeVisitor):
         # substitution references don't seem to be caught by the processor.
         # Otherwise, I'd have this code here:
         # sub_name = node['names'][0]
-        # sub_text = str(node.children[0])
+        # sub_text = unicode(node.children[0])
         # if sub_text[0:2] == '\\u':
         #     sub_text = '&#%s;' % sub_text[2:]
         # self.subs.append('<!ENTITY %s "%s">' % (sub_name, sub_text))
@@ -252,7 +254,7 @@ class DocBookTranslator(nodes.NodeVisitor):
 
 
     def visit_substitution_reference(self, node):
-        #self.tb.data('&%s;' % str(node))
+        #self.tb.data('&%s;' % unicode(node))
         self.skip_text_processing = True
 
 
@@ -272,11 +274,11 @@ class DocBookTranslator(nodes.NodeVisitor):
         attribs = {}
         # first check to see if an id was supplied.
         if len(node['ids']) > 0:
-            attribs['id'] = str(node['ids'][0])
+            attribs['id'] = unicode(node['ids'][0])
         elif len(node.parent['ids']) > 0:
             # If the parent node has an ID, we can use that and add '.title' at
             # the end to make a deterministic title ID.
-            attribs['id'] = '%s.title' % str(node.parent['ids'][0])
+            attribs['id'] = '%s.title' % unicode(node.parent['ids'][0])
 
         self._push_element('title', attribs)
 
@@ -312,7 +314,7 @@ class DocBookTranslator(nodes.NodeVisitor):
     def visit_Text(self, node):
         if self.skip_text_processing:
             return
-        self.tb.data(str(node))
+        self.tb.data(unicode(node))
 
 
     def depart_Text(self, node):
@@ -486,7 +488,7 @@ class DocBookTranslator(nodes.NodeVisitor):
             imagedata_attribs['fileref'] = node['uri']
         else:
             # unknown attribute
-            imagedata_attribs['eek'] = str(node)
+            imagedata_attribs['eek'] = unicode(node)
 
         if node.hasattr('height'):
             pass # not in docbook
@@ -495,7 +497,7 @@ class DocBookTranslator(nodes.NodeVisitor):
             pass # not in docbook
 
         if node.hasattr('scale'):
-            imagedata_attribs['scale'] = str(node['scale'])
+            imagedata_attribs['scale'] = unicode(node['scale'])
 
         if node.hasattr('align'):
             alignval = node['align']
@@ -567,7 +569,7 @@ class DocBookTranslator(nodes.NodeVisitor):
         attribs = {}
 
         if node.hasattr('cols'):
-            attribs['cols'] =  str(node['cols'])
+            attribs['cols'] =  unicode(node['cols'])
 
         self._push_element('tgroup', attribs)
 
@@ -580,7 +582,7 @@ class DocBookTranslator(nodes.NodeVisitor):
         attribs = {}
 
         if node.hasattr('colwidth'):
-            attribs['colwidth'] = str(node['colwidth'])
+            attribs['colwidth'] = unicode(node['colwidth'])
 
         self._push_element('colspec', attribs)
 
