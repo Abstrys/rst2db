@@ -29,7 +29,7 @@ Settings:
 setup(name='rst2db',
       description="""
         A reStructuredText to DocBook converter using Python's docutils.""",
-      version='1.0',
+      version='1.1',
       install_requires=['docutils>=0.12', 'lxml>=2.3'],
       packages=find_packages(),
       entry_points={

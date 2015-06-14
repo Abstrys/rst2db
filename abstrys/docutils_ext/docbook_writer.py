@@ -11,15 +11,13 @@
 #
 # * http://docutils.sourceforge.net/docs/ref/doctree.html
 #
-from docutils import nodes, writers
-from docutils.parsers import rst
-import lxml.etree as etree
 import os
-
-# import sys and set default encoding to utf-8
 import sys
-reload(sys)
-sys.setdefaultencoding('utf-8')
+
+from docutils import nodes, writers
+
+import lxml.etree as etree
+
 
 def _print_error(text, node = None):
     """Prints an error string and optionally, the node being worked on."""
