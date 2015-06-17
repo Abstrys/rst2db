@@ -43,6 +43,7 @@ class DocBookWriter(writers.Writer):
                 self.document_id, self.output_xml_header)
         self.document.walkabout(self.visitor)
         self.output = self.visitor.astext()
+        self.fields = self.visitor.fields
 
 
 class DocBookTranslator(nodes.NodeVisitor):
@@ -70,6 +71,16 @@ class DocBookTranslator(nodes.NodeVisitor):
         # the element currently being processed.
         self.estack = []
         self.tb = etree.TreeBuilder()
+        self.fields = {}
+        self.current_field_name = None
+        self.nsmap = {'xml': 'http://www.w3.org/XML/1998/namespace',
+                      'xlink': 'http://www.w3.org/1999/xlink',
+                      'xi': 'http://www.w3.org/2001/XInclude',
+                      'svg': 'http://www.w3.org/2000/svg',
+                      'xhtml': 'http://www.w3.org/1999/xhtml',
+                      'mathml': 'http://www.w3.org/1998/Math/MathML',
+                      None: 'http://docbook.org/ns/docbook'}
+
 
     #
     # functions used by the translator.
@@ -95,11 +106,11 @@ class DocBookTranslator(nodes.NodeVisitor):
 
     def _push_element(self, name, attribs = {}):
         if self.next_element_id:
-            attribs['id'] = self.next_element_id
+            attribs['{http://www.w3.org/XML/1998/namespace}id'] = self.next_element_id
             self.next_element_id = None
-        elif 'id' in attribs and attribs['id'] is None:
-            del attribs['id']
-        e = self.tb.start(name, attribs)
+        elif '{http://www.w3.org/XML/1998/namespace}id' in attribs and attribs['{http://www.w3.org/XML/1998/namespace}id'] is None:
+            del attribs['{http://www.w3.org/XML/1998/namespace}id']
+        e = self.tb.start(name, attribs, self.nsmap)
         self.estack.append(e)
         return e
 
@@ -204,31 +215,34 @@ class DocBookTranslator(nodes.NodeVisitor):
 
 
     def visit_paragraph(self, node):
-        self._push_element('para')
+        if self.current_field_name is None:
+            self._push_element('para')
 
 
     def depart_paragraph(self, node):
-        self._pop_element()
+        if self.current_field_name is None:
+            self._pop_element()
 
 
     def visit_section(self, node):
         attribs = {}
-
         # Do something special if this is the very first section in the
         # document.
         if self.in_first_section == False:
             node['ids'][0] = self.document_id
-            self._push_element(self.document_type, {'id': self.document_id})
+            self._push_element(self.document_type,
+                               {'{http://www.w3.org/XML/1998/namespace}id': self.document_id,
+                                'version': '5.0'})
             self.in_first_section = True
             return
 
         if self.next_element_id:
             node['ids'][0] = self.next_element_id
-            attribs['id'] = self.next_element_id
+            attribs['{http://www.w3.org/XML/1998/namespace}id'] = self.next_element_id
             self.next_element_id = None
         else:
             if len(node['ids']) > 0:
-                attribs['id'] = unicode(node['ids'][0])
+                attribs['{http://www.w3.org/XML/1998/namespace}id'] = unicode(node['ids'][0])
 
         self._push_element('section', attribs)
         # TODO - Collect other attributes.
@@ -272,14 +286,13 @@ class DocBookTranslator(nodes.NodeVisitor):
 
     def visit_title(self, node):
         attribs = {}
-        # first check to see if an id was supplied.
+        # first check to see if an {http://www.w3.org/XML/1998/namespace}id was supplied.
         if len(node['ids']) > 0:
-            attribs['id'] = unicode(node['ids'][0])
+            attribs['{http://www.w3.org/XML/1998/namespace}id'] = unicode(node['ids'][0])
         elif len(node.parent['ids']) > 0:
             # If the parent node has an ID, we can use that and add '.title' at
             # the end to make a deterministic title ID.
-            attribs['id'] = '%s.title' % unicode(node.parent['ids'][0])
-
+            attribs['{http://www.w3.org/XML/1998/namespace}id'] = '%s.title' % unicode(node.parent['ids'][0])
         self._push_element('title', attribs)
 
 
@@ -346,7 +359,7 @@ class DocBookTranslator(nodes.NodeVisitor):
                 ref_name = os.path.splitext(node['refuri'])[0]
                 self._push_element('link', {'linkend': ref_name})
             else:
-                self._push_element('ulink', {'url': node['refuri']})
+                self._push_element('link', {'{http://www.w3.org/1999/xlink}href': node['refuri']})
         else:
             _print_error('unknown reference', node)
 
@@ -430,44 +443,52 @@ class DocBookTranslator(nodes.NodeVisitor):
 
 
     def visit_field_list(self, node):
-        self.visit_table(node)
-        self._push_element('tgroup', {'cols': '2'})
-        self._push_element('tbody')
+        self._push_element('info')
 
 
     def depart_field_list(self, node):
-        self._pop_element() # tbody
-        self._pop_element() # tgroup
-        self.depart_table(node)
+        self._pop_element()  # info
 
 
     def visit_field(self, node):
-        self.visit_row(node)
+        pass
 
 
     def depart_field(self, node):
-        self.depart_row(node)
+        pass
 
 
     def visit_field_name(self, node):
-        self.visit_entry(node)
-        self._push_element('para')
-        self._push_element('emphasis', {'role': 'strong'})
+        name = node.astext()
+        if name == 'author':
+            self._push_element('author')
+            self._push_element('personname')
+        elif name == 'date':
+            self._push_element('pubdate')
+        self.current_field_name = name
+        self.skip_text_processing = True
 
 
     def depart_field_name(self, node):
-        self._pop_element() # emphasis
-        self._pop_element() # para
-        self.depart_entry(node)
+        self.skip_text_processing = False
 
 
     def visit_field_body(self, node):
-        self.visit_entry(node)
-        pass
+        if self.current_field_name:
+            value = node.astext()
+            self.fields[self.current_field_name] = value
+        else:
+            node.clear()
+
 
     def depart_field_body(self, node):
-        self.depart_entry(node)
-        pass
+        if self.current_field_name:
+            if self.current_field_name == 'author':
+                self._pop_element()  # personname
+                self._pop_element()  # author
+            elif self.current_field_name == 'date':
+                self._pop_element()  # pubdate
+            self.current_field_name = None
 
     #
     # image parts

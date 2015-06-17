@@ -81,7 +81,7 @@ def process_cmd_args():
     return params
 
 
-def process_with_template(contents, params):
+def process_with_template(contents, params, fields):
     """Process the results with a Jinja2-style template.
 
     The template variables can be specified as {{data.root_element}} and
@@ -92,20 +92,12 @@ def process_with_template(contents, params):
     except ImportError:
         printerr("""Jinja2 is not installed: can't use template!""")
         sys.exit(1)
-
-    if not os.path.exists(params['template_filename']):
-        printerr("Template file doesn't exist: %s" % 
-                 params['template_filename'])
-        sys.exit(1)
-
-    data = { 'root_element': params['root_element'],
-            'contents': contents }
-
-    jinja2env = jinja2.Environment(loader=jinja2.FileSystemLoader('.'),
+    fields['root_element'] = params['root_element']
+    fields['contents'] = contents
+    jinja2env = jinja2.Environment(loader=jinja2.FileSystemLoader('/'),
             trim_blocks=True)
-
     t = jinja2env.get_template(params['template_filename'])
-    return t.render(data=data)
+    return t.render(data=fields)
 
 
 def run():
@@ -136,17 +128,18 @@ def run():
     else:
         docutils_writer = DocBookWriter(params['root_element'],
                 output_xml_header=(params['template_filename'] == None))
-
     # get the docbook output.
-    overrides = {'input_encoding': 'utf-8'}
+    overrides = {'input_encoding': 'utf-8',
+                 'output_encoding': 'utf-8'}
     docbook_contents = publish_string(input_file_contents,
                                       writer=docutils_writer,
                                       settings_overrides=overrides)
 
     # process the output with a template if a template name was supplied.
     if params['template_filename'] != None:
-        docbook_contents = process_with_template(docbook_contents, params)
-
+        docbook_contents = process_with_template(docbook_contents.decode('utf-8'),
+                                                 params,
+                                                 docutils_writer.fields).encode('utf-8')
     # if there's an output file, write to that. Otherwise, write to stdout.
     if params['output_filename'] == None:
         output_file = sys.stdout
@@ -154,7 +147,6 @@ def run():
         output_file = open(params['output_filename'], 'w+')
 
     output_file.write(docbook_contents)
-
     # that's it, we're done here!
     sys.exit(0)
 
