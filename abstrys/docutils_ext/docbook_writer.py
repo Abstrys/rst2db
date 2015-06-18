@@ -11,21 +11,19 @@
 #
 # * http://docutils.sourceforge.net/docs/ref/doctree.html
 #
-from docutils import nodes, writers
-from docutils.parsers import rst
-import lxml.etree as etree
 import os
-
-# import sys and set default encoding to utf-8
 import sys
-reload(sys)
-sys.setdefaultencoding('utf-8')
+
+from docutils import nodes, writers
+
+import lxml.etree as etree
+
 
 def _print_error(text, node = None):
     """Prints an error string and optionally, the node being worked on."""
     sys.stderr.write('\n%s: %s\n' % (__name__, text))
     if node:
-        sys.stderr.write("  %s\n" % str(node))
+        sys.stderr.write(u"  %s\n" % unicode(node))
 
 
 class DocBookWriter(writers.Writer):
@@ -45,12 +43,14 @@ class DocBookWriter(writers.Writer):
                 self.document_id, self.output_xml_header)
         self.document.walkabout(self.visitor)
         self.output = self.visitor.astext()
+        self.fields = self.visitor.fields
 
 
 class DocBookTranslator(nodes.NodeVisitor):
     """A docutils translator for DocBook."""
 
-    def __init__(self, document, document_type, document_id = None, output_xml_header=True):
+    def __init__(self, document, document_type, document_id = None,
+                 output_xml_header=True):
         """Initialize the translator. Takes the root element of the resulting
         DocBook output as its sole argument."""
         nodes.NodeVisitor.__init__(self, document)
@@ -71,6 +71,16 @@ class DocBookTranslator(nodes.NodeVisitor):
         # the element currently being processed.
         self.estack = []
         self.tb = etree.TreeBuilder()
+        self.fields = {}
+        self.current_field_name = None
+        self.nsmap = {'xml': 'http://www.w3.org/XML/1998/namespace',
+                      'xlink': 'http://www.w3.org/1999/xlink',
+                      'xi': 'http://www.w3.org/2001/XInclude',
+                      'svg': 'http://www.w3.org/2000/svg',
+                      'xhtml': 'http://www.w3.org/1999/xhtml',
+                      'mathml': 'http://www.w3.org/1998/Math/MathML',
+                      None: 'http://docbook.org/ns/docbook'}
+
 
     #
     # functions used by the translator.
@@ -88,7 +98,7 @@ class DocBookTranslator(nodes.NodeVisitor):
 
 
     def _add_element_title(self, title_name, title_attribs = {}):
-        """Add a title to te current element."""
+        """Add a title to the current element."""
         self._push_element('title', title_attribs)
         self.tb.data(title_name)
         return self.tb_end('title')
@@ -96,10 +106,11 @@ class DocBookTranslator(nodes.NodeVisitor):
 
     def _push_element(self, name, attribs = {}):
         if self.next_element_id:
-            attribs['id'] = self.next_element_id
+            attribs['{http://www.w3.org/XML/1998/namespace}id'] = self.next_element_id
             self.next_element_id = None
-
-        e = self.tb.start(name, attribs)
+        elif '{http://www.w3.org/XML/1998/namespace}id' in attribs and attribs['{http://www.w3.org/XML/1998/namespace}id'] is None:
+            del attribs['{http://www.w3.org/XML/1998/namespace}id']
+        e = self.tb.start(name, attribs, self.nsmap)
         self.estack.append(e)
         return e
 
@@ -204,31 +215,34 @@ class DocBookTranslator(nodes.NodeVisitor):
 
 
     def visit_paragraph(self, node):
-        self._push_element('para')
+        if self.current_field_name is None:
+            self._push_element('para')
 
 
     def depart_paragraph(self, node):
-        self._pop_element()
+        if self.current_field_name is None:
+            self._pop_element()
 
 
     def visit_section(self, node):
         attribs = {}
-
         # Do something special if this is the very first section in the
         # document.
         if self.in_first_section == False:
             node['ids'][0] = self.document_id
-            self._push_element(self.document_type, {'id': self.document_id})
+            self._push_element(self.document_type,
+                               {'{http://www.w3.org/XML/1998/namespace}id': self.document_id,
+                                'version': '5.0'})
             self.in_first_section = True
             return
 
         if self.next_element_id:
             node['ids'][0] = self.next_element_id
-            attribs['id'] = self.next_element_id
+            attribs['{http://www.w3.org/XML/1998/namespace}id'] = self.next_element_id
             self.next_element_id = None
         else:
             if len(node['ids']) > 0:
-                attribs['id'] = str(node['ids'][0])
+                attribs['{http://www.w3.org/XML/1998/namespace}id'] = unicode(node['ids'][0])
 
         self._push_element('section', attribs)
         # TODO - Collect other attributes.
@@ -242,7 +256,7 @@ class DocBookTranslator(nodes.NodeVisitor):
         # substitution references don't seem to be caught by the processor.
         # Otherwise, I'd have this code here:
         # sub_name = node['names'][0]
-        # sub_text = str(node.children[0])
+        # sub_text = unicode(node.children[0])
         # if sub_text[0:2] == '\\u':
         #     sub_text = '&#%s;' % sub_text[2:]
         # self.subs.append('<!ENTITY %s "%s">' % (sub_name, sub_text))
@@ -254,7 +268,7 @@ class DocBookTranslator(nodes.NodeVisitor):
 
 
     def visit_substitution_reference(self, node):
-        #self.tb.data('&%s;' % str(node))
+        #self.tb.data('&%s;' % unicode(node))
         self.skip_text_processing = True
 
 
@@ -272,14 +286,13 @@ class DocBookTranslator(nodes.NodeVisitor):
 
     def visit_title(self, node):
         attribs = {}
-        # first check to see if an id was supplied.
+        # first check to see if an {http://www.w3.org/XML/1998/namespace}id was supplied.
         if len(node['ids']) > 0:
-            attribs['id'] = str(node['ids'][0])
+            attribs['{http://www.w3.org/XML/1998/namespace}id'] = unicode(node['ids'][0])
         elif len(node.parent['ids']) > 0:
             # If the parent node has an ID, we can use that and add '.title' at
             # the end to make a deterministic title ID.
-            attribs['id'] = '%s.title' % str(node.parent['ids'][0])
-
+            attribs['{http://www.w3.org/XML/1998/namespace}id'] = '%s.title' % unicode(node.parent['ids'][0])
         self._push_element('title', attribs)
 
 
@@ -314,7 +327,7 @@ class DocBookTranslator(nodes.NodeVisitor):
     def visit_Text(self, node):
         if self.skip_text_processing:
             return
-        self.tb.data(str(node))
+        self.tb.data(unicode(node))
 
 
     def depart_Text(self, node):
@@ -346,7 +359,7 @@ class DocBookTranslator(nodes.NodeVisitor):
                 ref_name = os.path.splitext(node['refuri'])[0]
                 self._push_element('link', {'linkend': ref_name})
             else:
-                self._push_element('ulink', {'url': node['refuri']})
+                self._push_element('link', {'{http://www.w3.org/1999/xlink}href': node['refuri']})
         else:
             _print_error('unknown reference', node)
 
@@ -430,44 +443,52 @@ class DocBookTranslator(nodes.NodeVisitor):
 
 
     def visit_field_list(self, node):
-        self.visit_table(node)
-        self._push_element('tgroup', {'cols': '2'})
-        self._push_element('tbody')
+        self._push_element('info')
 
 
     def depart_field_list(self, node):
-        self._pop_element() # tbody
-        self._pop_element() # tgroup
-        self.depart_table(node)
+        self._pop_element()  # info
 
 
     def visit_field(self, node):
-        self.visit_row(node)
+        pass
 
 
     def depart_field(self, node):
-        self.depart_row(node)
+        pass
 
 
     def visit_field_name(self, node):
-        self.visit_entry(node)
-        self._push_element('para')
-        self._push_element('emphasis', {'role': 'strong'})
+        name = node.astext()
+        if name == 'author':
+            self._push_element('author')
+            self._push_element('personname')
+        elif name == 'date':
+            self._push_element('pubdate')
+        self.current_field_name = name
+        self.skip_text_processing = True
 
 
     def depart_field_name(self, node):
-        self._pop_element() # emphasis
-        self._pop_element() # para
-        self.depart_entry(node)
+        self.skip_text_processing = False
 
 
     def visit_field_body(self, node):
-        self.visit_entry(node)
-        pass
+        if self.current_field_name:
+            value = node.astext()
+            self.fields[self.current_field_name] = value
+        else:
+            node.clear()
+
 
     def depart_field_body(self, node):
-        self.depart_entry(node)
-        pass
+        if self.current_field_name:
+            if self.current_field_name == 'author':
+                self._pop_element()  # personname
+                self._pop_element()  # author
+            elif self.current_field_name == 'date':
+                self._pop_element()  # pubdate
+            self.current_field_name = None
 
     #
     # image parts
@@ -488,7 +509,7 @@ class DocBookTranslator(nodes.NodeVisitor):
             imagedata_attribs['fileref'] = node['uri']
         else:
             # unknown attribute
-            imagedata_attribs['eek'] = str(node)
+            imagedata_attribs['eek'] = unicode(node)
 
         if node.hasattr('height'):
             pass # not in docbook
@@ -497,7 +518,7 @@ class DocBookTranslator(nodes.NodeVisitor):
             pass # not in docbook
 
         if node.hasattr('scale'):
-            imagedata_attribs['scale'] = str(node['scale'])
+            imagedata_attribs['scale'] = unicode(node['scale'])
 
         if node.hasattr('align'):
             alignval = node['align']
@@ -569,7 +590,7 @@ class DocBookTranslator(nodes.NodeVisitor):
         attribs = {}
 
         if node.hasattr('cols'):
-            attribs['cols'] =  str(node['cols'])
+            attribs['cols'] =  unicode(node['cols'])
 
         self._push_element('tgroup', attribs)
 
@@ -582,7 +603,7 @@ class DocBookTranslator(nodes.NodeVisitor):
         attribs = {}
 
         if node.hasattr('colwidth'):
-            attribs['colwidth'] = str(node['colwidth'])
+            attribs['colwidth'] = unicode(node['colwidth'])
 
         self._push_element('colspec', attribs)
 

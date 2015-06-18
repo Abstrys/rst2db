@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 #
-# abstrys.sphinx.docbook_builder
+# abstrys.sphinx_ext.docbook_builder
 # ------------------------------
 #
 # A DocBook builder for Sphinx, using rst2db's docbook writer.
 #
 # by Eron Hennessey
 
-from abstrys.docutils.docbook_writer import DocBookWriter
+from abstrys.docutils_ext.docbook_writer import DocBookWriter
 from docutils.core import publish_from_doctree
 from sphinx.builders.text import TextBuilder
 import os, sys

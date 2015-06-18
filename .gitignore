@@ -3,4 +3,6 @@ dist/
 testfiles/
 *.pyc
 *.swp
+*.egg-info
 MANIFEST
+.*

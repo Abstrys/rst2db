@@ -29,13 +29,13 @@ Settings:
 setup(name='rst2db',
       description="""
         A reStructuredText to DocBook converter using Python's docutils.""",
-      version='1.0',
+      version='1.1',
       install_requires=['docutils>=0.12', 'lxml>=2.3'],
       packages=find_packages(),
       entry_points={
           'console_scripts': [ 'rst2db = abstrys.cmd_rst2db:run' ],
           },
-      author='Eron Hennessey',
-      author_email='eron@abstrys.com',
-      url='https://github.com/Abstrys/rst2db',
+      author='Aleksei Badyaev',
+      author_email='aleksei.badyaev@gmail.com',
+      url='https://github.com/leemouse/rst2db',
       )
