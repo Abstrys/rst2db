@@ -35,7 +35,7 @@ setup(name='rst2db',
       entry_points={
           'console_scripts': [ 'rst2db = abstrys.cmd_rst2db:run' ],
           },
-      author='Aleksei Badyaev',
-      author_email='aleksei.badyaev@gmail.com',
-      url='https://github.com/leemouse/rst2db',
+      author='Eron Hennessey',
+      author_email='eron@abstrys.com',
+      url='https://github.com/Abstrys/rst2db',
       )

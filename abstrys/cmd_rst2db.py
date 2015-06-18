@@ -7,7 +7,10 @@
 # A reStructuredText to DocBook conversion tool, using Python's docutils
 # library.
 #
-# by Eron Hennessey
+# by Eron Hennessey, with contributions from great people:
+#
+# * Aleksei Badyaev <aleksei.badyaev@gmail.com>
+#
 
 import os
 import sys
