@@ -1,19 +1,28 @@
+#########
 rst2db.py
-=========
+#########
 
-A reStructuredText to DocBook command-line converter using Python's docutils,
-with an included Sphinx builder.
+A number of tools for reStructuredText (reST) and Sphinx, including:
 
-Using the command-line utility
-------------------------------
+* A reST to DocBook converter (rst2db) with an included Sphinx builder
+  (abstrys.spinx_ext.docbook_builder).
+
+* A reST to Markdown converter (rst2md) with an included Sphinx builder
+  (abstrys.sphinx_ext.markdown_builder).
+
+
+Using the command-line utilities
+================================
 
 ::
 
   rst2db <filename> [-e root_element] [-o output_file] [-t template_file]
 
+  rst2md <filename> [-o output_file]
+
 Only the filename to process is required. All other settings are optional.
 
-Settings:
+**Settings:**
 
  -e root_element  set the root element of the resulting docbook file. If this is
                   not specified, then 'section' will be used.
@@ -28,18 +37,18 @@ Settings:
                    the output of this script in your template.
 
 
-Using the Sphinx builder
-------------------------
+Using the Sphinx builders
+=========================
 
-Configuration
-~~~~~~~~~~~~~
+Docbook output
+--------------
 
-To build docbook output with Sphinx, add `abstrys.docbook.builder` to the
-*extensions* list in ``conf.py``::
+To build DocBook output with Sphinx, add `abstrys.sphinx_ext.docbook_builder` to the *extensions*
+list in ``conf.py``::
 
  extensions = [
     ... other extensions here ...
-    abstrys.sphinx.docbook_builder
+    abstrys.sphinx_ext.docbook_builder
     ]
 
 There are two configurable parameters for ``conf.py`` that correspond to
@@ -52,11 +61,26 @@ There are two configurable parameters for ``conf.py`` that correspond to
 :docbook_default_root_element: default root element for a file-level document.
                                Default is 'section'.
 
-Running a build
-~~~~~~~~~~~~~~~
+Then, build your project using ``sphinx-build`` with the ``-b docbook`` option::
 
-The builder is registered with the name 'docbook', so to run a build that uses
-the builder, run ``sphinx-build`` with ``-b docbook``.
+    sphinx-build source output -b docbook
+
+
+Markdown output
+---------------
+
+To build Markdown output with Sphinx, add `abstrys.sphinx_ext.docbook_builder` to the *extensions*
+list in ``conf.py``::
+
+ extensions = [
+    ... other extensions here ...
+    abstrys.sphinx_ext.markdown_builder
+    ]
+
+There aren't any configurable options yet. Just build your project with ``-b markdown`` as the
+output type::
+
+    sphinx-build source output -b markdown
 
 
 License

@@ -7,7 +7,11 @@ Usage
 
 ::
 
-  rst2db <filename> [-e root_element] [-o output_file] [-t template_file]
+ rst2db <filename> [-e root_element] [-o output_file] [-t template_file]
+
+or::
+
+ rst2md <filename>
 
 Only the filename to process is required. All other settings are optional.
 
@@ -28,12 +32,15 @@ Settings:
 
 setup(name='rst2db',
       description="""
-        A reStructuredText to DocBook converter using Python's docutils.""",
+        A reStructuredText to MarkDown converter using Python's docutils.""",
       version='1.1',
       install_requires=['docutils>=0.12', 'lxml>=2.3'],
       packages=find_packages(),
       entry_points={
-          'console_scripts': [ 'rst2db = abstrys.cmd_rst2db:run' ],
+          'console_scripts': [
+              'rst2db = abstrys.cmd_rst2db:run',
+              'rst2md = abstrys.cmd_rst2md:run',
+              ],
           },
       author='Eron Hennessey',
       author_email='eron@abstrys.com',
