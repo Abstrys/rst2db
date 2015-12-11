@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 #
-# abstrys.docbook.writer
-# ----------------------
+# #################################
+# abstrys.sphinx_ext.docbook_writer
+# #################################
 #
 # A module for docutils that converts from a doctree to DocBook output.
 #
@@ -63,7 +64,6 @@ class DocBookTranslator(nodes.NodeVisitor):
 
         self.in_pre_block = False
         self.in_figure = False
-        self.skip_text_processing = False
         self.next_element_id = None
 
         # self.estack is a stack of etree nodes. The bottom of the stack should
@@ -121,67 +121,8 @@ class DocBookTranslator(nodes.NodeVisitor):
 
 
     #
-    # document parts
+    # The document itself
     #
-
-    def visit_abstract(self, node):
-        self._push_element('abstract')
-
-
-    def depart_abstract(self, node):
-        self._pop_element()
-
-
-    def visit_address(self, node):
-        self.visit_literal_block(node)
-
-
-    def depart_address(self, node):
-        self.depart_literal_block(node)
-
-
-    def visit_block_quote(self, node):
-        self._push_element('blockquote')
-
-
-    def depart_block_quote(self, node):
-        self._pop_element()
-
-
-    def visit_comment(self, node):
-        # ignore comments in the output.
-        _print_error("ignoring comment:", node)
-        self.skip_text_processing = True
-
-
-    def depart_comment(self, node):
-        self.skip_text_processing = False
-
-
-    def visit_compact_paragraph(self, node):
-        self.visit_paragraph(node)
-
-
-    def depart_compact_paragraph(self, node):
-        self.depart_paragraph(node)
-
-
-    def visit_compound(self, node):
-        pass
-
-
-    def depart_compound(self, node):
-        pass
-
-
-    def visit_docinfo(self, node):
-        _print_error("docinfo", node)
-        pass
-
-
-    def depart_docinfo(self, node):
-        pass
-
 
     def visit_document(self, node):
         """Create the document itself."""
@@ -191,28 +132,16 @@ class DocBookTranslator(nodes.NodeVisitor):
     def depart_document(self, node):
         pass
 
+    #
+    # document parts
+    #
 
-    def visit_include(self, node):
-        """Include as an xi:include"""
+    def visit_Text(self, node):
+        self.tb.data(unicode(node))
 
 
-    def visit_index(self, node):
+    def depart_Text(self, node):
         pass
-        #self._push_element('indexterm')
-
-
-    def depart_index(self, node):
-        pass
-        #self._pop_element()
-
-
-    def visit_literal_strong(self, node):
-        self._push_element('command')
-
-
-    def depart_literal_strong(self, node):
-        self._pop_element()
-
 
     def visit_paragraph(self, node):
         if self.current_field_name is None:
@@ -222,6 +151,13 @@ class DocBookTranslator(nodes.NodeVisitor):
     def depart_paragraph(self, node):
         if self.current_field_name is None:
             self._pop_element()
+
+    def visit_compact_paragraph(self, node):
+        self.visit_paragraph(node)
+
+
+    def depart_compact_paragraph(self, node):
+        self.depart_paragraph(node)
 
 
     def visit_section(self, node):
@@ -252,6 +188,78 @@ class DocBookTranslator(nodes.NodeVisitor):
         self._pop_element()
 
 
+    def visit_block_quote(self, node):
+        self._push_element('blockquote')
+
+
+    def depart_block_quote(self, node):
+        self._pop_element()
+
+
+
+    def visit_abstract(self, node):
+        self._push_element('abstract')
+
+
+    def depart_abstract(self, node):
+        self._pop_element()
+
+
+    def visit_address(self, node):
+        self.visit_literal_block(node)
+
+
+    def depart_address(self, node):
+        self.depart_literal_block(node)
+
+
+    def visit_comment(self, node):
+        # ignore comments in the output.
+        _print_error("ignoring comment:", node)
+        raise nodes.SkipNode
+
+    def depart_comment(self, node):
+        pass
+
+    def visit_compound(self, node):
+        pass
+
+
+    def depart_compound(self, node):
+        pass
+
+
+    def visit_docinfo(self, node):
+        _print_error("docinfo", node)
+        pass
+
+
+    def depart_docinfo(self, node):
+        pass
+
+
+    def visit_include(self, node):
+        """Include as an xi:include"""
+
+
+    def visit_index(self, node):
+        pass
+        #self._push_element('indexterm')
+
+
+    def depart_index(self, node):
+        pass
+        #self._pop_element()
+
+
+    def visit_literal_strong(self, node):
+        self._push_element('command')
+
+
+    def depart_literal_strong(self, node):
+        self._pop_element()
+
+
     def visit_substitution_definition(self, node):
         # substitution references don't seem to be caught by the processor.
         # Otherwise, I'd have this code here:
@@ -260,20 +268,17 @@ class DocBookTranslator(nodes.NodeVisitor):
         # if sub_text[0:2] == '\\u':
         #     sub_text = '&#%s;' % sub_text[2:]
         # self.subs.append('<!ENTITY %s "%s">' % (sub_name, sub_text))
-        self.skip_text_processing = True
-
+        raise nodes.SkipNode
 
     def depart_substitution_definition(self, node):
-        self.skip_text_processing = False
-
+        pass
 
     def visit_substitution_reference(self, node):
         #self.tb.data('&%s;' % unicode(node))
-        self.skip_text_processing = True
-
+        raise nodes.SkipNode
 
     def depart_substitution_reference(self, node):
-        self.skip_text_processing = False
+        pass
 
 
     def visit_subtitle(self, node):
@@ -322,16 +327,6 @@ class DocBookTranslator(nodes.NodeVisitor):
 
     def depart_topic(self, node):
         self.depart_section(node)
-
-
-    def visit_Text(self, node):
-        if self.skip_text_processing:
-            return
-        self.tb.data(unicode(node))
-
-
-    def depart_Text(self, node):
-        pass
 
 
     #
@@ -466,12 +461,10 @@ class DocBookTranslator(nodes.NodeVisitor):
         elif name == 'date':
             self._push_element('pubdate')
         self.current_field_name = name
-        self.skip_text_processing = True
-
+        raise self.SkipNode
 
     def depart_field_name(self, node):
-        self.skip_text_processing = False
-
+        pass
 
     def visit_field_body(self, node):
         if self.current_field_name:
@@ -479,7 +472,6 @@ class DocBookTranslator(nodes.NodeVisitor):
             self.fields[self.current_field_name] = value
         else:
             node.clear()
-
 
     def depart_field_body(self, node):
         if self.current_field_name:

@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 #
-# #######################
-# abstrys.markdown.writer
-# #######################
+# ##################################
+# abstrys.sphinx_ext.markdown_writer
+# ##################################
 #
 # A module for docutils that converts from a doctree to Markdown output.
 #
@@ -269,7 +269,9 @@ class MarkdownTranslator(nodes.NodeVisitor):
     def depart_field_name(self, node):
         pass
 
-    # image
+    #
+    # images and figures
+    #
 
     def _add_image(self, uri, alt_text="", caption=None):
         if caption:
@@ -297,7 +299,6 @@ class MarkdownTranslator(nodes.NodeVisitor):
     def depart_image(self, node):
         pass
 
-    # figure
     def visit_figure(self, node):
         caption = ""
         alt_text = ""

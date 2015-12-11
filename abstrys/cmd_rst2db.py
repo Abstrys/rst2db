@@ -16,6 +16,7 @@ import os
 import sys
 
 from abstrys.docutils_ext.docbook_writer import DocBookWriter
+from abstrys.common import printerr
 from docutils.core import publish_string
 
 
@@ -43,11 +44,6 @@ Only the filename to process is required. All other settings are optional.
                   Use {{data.root_element}} and {{data.contents}} to
                   represent the output of this script in your template.
         """
-
-
-def printerr(error_text):
-    """Prints an error message to stderr"""
-    sys.stderr.write("ERROR -- %s\n" % error_text)
 
 
 def print_usage_and_exit(return_code=0):
