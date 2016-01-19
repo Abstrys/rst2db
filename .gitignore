@@ -1,6 +1,7 @@
 build/
 dist/
-testfiles/
+*.html
+*.md
 *.pyc
 *.swp
 *.egg-info

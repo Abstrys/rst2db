@@ -431,7 +431,16 @@ class MarkdownTranslator(nodes.NodeVisitor):
     def visit_reference(self, node):
         text = ""
         if 'refuri' in node:
-            text = ("[%s](%s)" % (node.astext(), node['refuri']))
+            uri = node['refuri']
+            print("visit_reference")
+            print("---------------")
+            print(node.parent)
+            print("\n")
+            print(node)
+            print("\n")
+            if not uri.startswith('http'):
+                uri = uri + '.md'
+            text = ("[%s](%s)" % (node.astext(), uri))
         elif 'refid' in node:
             text = ("[%s](#%s)" % (node.astext(), node['refid']))
         else:
