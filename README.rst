@@ -10,15 +10,35 @@ A number of tools for reStructuredText (reST) and Sphinx, including:
 * A reST to Markdown converter (``rst2md``) with an included Sphinx builder
   (abstrys.sphinx_ext.markdown_builder).
 
+Prerequisites
+=============
+
+Before installing rst2db, you'll need the following prerequisites:
+
+* libxml2 and headers (**libxml2** and **libxml2-dev**)
+* Python bindings for libxml2 (**python-lxml** or **python3-lxml**)
+* libxslt1 headers (**libxslt1-dev**)
+* Python headers (**python-dev** or **python3-dev**)
+
+**You can install these on Ubuntu / Debian** by running::
+
+ sudo apt-get install libxml2 libxml2-dev libxslt1-dev
+
+and *one* of the following, depending on your Python version::
+
+ sudo apt-get install python3-lxml python3-dev
+
+ sudo apt-get install python-lxml python-dev
+
 
 Using the command-line utilities
 ================================
 
 ::
 
-  rst2db <filename> [-e root_element] [-o output_file] [-t template_file]
+ rst2db <filename> [-e root_element] [-o output_file] [-t template_file]
 
-  rst2md <filename> [-o output_file]
+ rst2md <filename> [-o output_file]
 
 Only the *filename* to process is required. All other settings are optional.
 
@@ -49,14 +69,14 @@ your ``.rst`` source.
 
 For example, you could use a template that looks like this:
 
-.. program-listing::
+.. code-block:: xml
 
-    <?xml version="1.0" encoding="utf-8"?>
-    <!DOCTYPE {{data.root_element}} PUBLIC "-//OASIS//DTD DocBook XML V4.1.2//EN"
-              "http://www.oasis-open.org/docbook/xml/4.1.2/docbookx.dtd">
-    <{{data.root_element}}>
-        {{data.contents}}
-    </{{data.root_element}}>
+   <?xml version="1.0" encoding="utf-8"?>
+   <!DOCTYPE {{data.root_element}} PUBLIC "-//OASIS//DTD DocBook XML V4.1.2//EN"
+             "http://www.oasis-open.org/docbook/xml/4.1.2/docbookx.dtd">
+   <{{data.root_element}}>
+       {{data.contents}}
+   </{{data.root_element}}>
 
 A template is only necessary if you want to customize the output. A standard DocBook XML header will
 be included in each output file by default.
@@ -93,8 +113,7 @@ There are two configurable parameters for ``conf.py`` that correspond to
 
 For example:
 
-.. programlisting::
-   :language: python
+.. code:: python
 
    docbook_template_file = 'dbtemplate.xml'
    docbook_default_root_element = chapter
